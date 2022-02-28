@@ -1,0 +1,267 @@
+name: Build with Docker
+on:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      sourcerepo:
+       required: true
+       type: string
+      variant:
+       required: true
+       type: string
+      runner:
+        required: true
+        type: string
+      part:
+        required: true
+        type: number
+      of:
+        required: true
+        type: number
+      include:
+        required: false
+        type: string
+      exclude:
+        required: false
+        type: string
+      uploading:
+        type: string
+    secrets:
+      GPG_SIGNING_KEY:
+        required: true
+      GPG_PASSPHRASE:
+        required: true
+      TOKEN:
+        required: true
+      SSHKEY: 
+        required: true
+      SSHKNOWNHOSTS:
+        required: true
+
+jobs:
+
+  Prepare:
+
+    name: targets
+    runs-on: [self-hosted]
+    if: ${{ github.repository_owner == 'jethome-ru' }}
+    outputs:
+      matrix: ${{steps.list_dirs.outputs.matrix}}
+    steps:
+      - uses: hmarr/debug-action@v2
+      
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          repository: jethome-ru/build-armbian
+          path: build
+          ref: ${{ inputs.sourcerepo }}
+          clean: false
+
+      - name: Remove previous artefacts if any
+        run: |
+          sudo rm -rf changes 2>/dev/null || true
+
+      - name: Download changes
+        uses: actions/download-artifact@v2
+        with:
+          name: changes
+
+      - name: Prepare matrix
+        id: list_dirs
+        run: |
+          var="${{ inputs.variant }}"
+          if [[ "$var" != *beta ]]; then
+            FILENAME="targets.conf | grep ${var%:*} | grep \"yes\|adv\""
+          else
+            FILENAME="targets-${var%:*}-beta.conf"
+          fi
+          
+          # if we want to split more
+          # MATRIX=$(split --number=l/${{ inputs.part }}/${{ inputs.of }} <<<
+                  
+          MATRIX="cat build/config/"${FILENAME}" | grep -v \"^$\" | grep -v \"^#\" |  ${{ inputs.include }} ${{ inputs.exclude }}  cut -f1 -d ' ' | pr -t -n4 | tr -s '[:blank:]' ':' | cut -d\":\" -f2,3"
+          [ -s changes ] || unset MATRIX
+          echo ::set-output name=matrix::$(for x in $(eval $MATRIX); do echo $x; done|jq -cnR '[inputs | select(length>0)]' | jq)
+       
+  image:
+    needs: Prepare
+    if: ${{ needs.Prepare.outputs.matrix != '[]' && needs.Prepare.outputs.matrix != '' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ${{fromJson(needs.Prepare.outputs.matrix)}}
+
+    runs-on: ${{ inputs.runner }}
+    steps:
+      - name: Checkout scripts repository
+        uses: actions/checkout@v2
+        with:
+          repository: jethome-ru/build-armbian-scripts
+          path: scripts
+          ref: master
+
+      - name: Checkout armbian-tools repository
+        uses: actions/checkout@v2
+        with:
+          repository: jethome-ru/jethome-tools
+          path: tools
+          ref: convert
+
+      - name: Checkout armbian repository
+        uses: actions/checkout@v2
+        with:
+          repository: jethome-ru/build-armbian
+          path: build
+          fetch-depth: 0
+          ref: ${{ inputs.sourcerepo }} 
+          clean: false
+
+      - name: Sync
+        run: |
+
+          mkdir -p build/userpatches
+          sudo cp scripts/configs/* build/userpatches/
+
+      - name: Set env variables
+        run: |
+         cd build
+         echo "JETHOME_CI_DEBS_DIR=testing" >> $GITHUB_ENV
+         echo "JETHOME_CI_FIRMW_DIR=testing" >> $GITHUB_ENV
+         echo "SUDO_USER=actions" >>$GITHUB_ENV
+         echo "TERM=xterm" >> $GITHUB_ENV
+         [[ -e VER ]] && VER="$(cat VER)"
+         [[ -z $VER ]] && VER="0"
+         sed -i "s/$/.jethome.$VER/" VERSION
+          
+      - name: Pull Docker image
+        run: |
+
+          [[ -z $(command -v docker) ]] && sudo apt-get -yy install docker containerd docker.io
+          sudo docker kill $(sudo docker ps -q) 2>/dev/null || true          
+          sudo docker image rm $(sudo docker images | grep -v $(cat build/VERSION | sed 's/trunk.*/trunk/')"-$(dpkg --print-architecture)" | awk 'NR>1 {print $3}') 2> /dev/null || true 
+          sudo docker pull ghcr.io/armbian/build:$(cat build/VERSION  | cut -d"." -f1-2)"-$(dpkg --print-architecture)"
+          
+      - name: Fix permissions
+        run: |
+          # make sure no temporally dirs are mounted from previous runs
+          #sudo docker volume rm $(sudo docker volume ls -q) 2> /dev/null || true
+          sudo pkill compile.sh || true
+          sudo pkill arm-binfmt-P || true
+          sudo pkill aarch64-binfmt-P || true
+          sudo pkill pixz || true
+          sudo rm -rf build/.tmp
+          
+          [[ -d build/.git ]] && sudo chown -R $USER:$USER build/.git || true
+          [[ -d build/output/images ]] && sudo rm -rf build/output/images/* || true
+         
+      - name: Import GPG key
+
+        uses: crazy-max/ghaction-import-gpg@v3
+        with:
+          gpg-private-key: ${{ secrets.GPG_SIGNING_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+          workdir: scripts
+          git-user-signingkey: true
+          git-commit-gpgsign: true
+        
+      - name: Assemble
+        run: |
+
+          export TERM=dumb
+          cd build
+          
+          var="${{ inputs.variant }}"
+          RC="no"
+          if [[ "$var" != *beta ]]; then
+            FILENAME="targets.conf | grep ${var%:*} | grep \"yes\|adv\""
+            MAKE_FOLDERS=archive
+            OLD="ghcr.io/armbian/build:$(cat VERSION  | cut -d"." -f1-2)"-$(dpkg --print-architecture)
+            sudo git checkout master              
+            sudo cp ../scripts/VERSION .
+            sudo docker tag $OLD ghcr.io/armbian/build:$(cat VERSION)-$(dpkg --print-architecture)
+            # we use nightly repository, but change back to stable right before closing image
+            echo "#!""/bin/bash" | sudo tee userpatches/customize-image.sh
+            echo "sed -i 's/beta/apt/' /etc/apt/sources.list.d/armbian.list" | sudo tee -a userpatches/customize-image.sh
+            if [[ "$var" == *rc ]]; then
+              MAKE_FOLDERS=rc
+            fi
+          else
+            FILENAME="targets-${var%:*}-beta.conf"
+            MAKE_FOLDERS=nightly
+          fi
+          BETA="yes"
+          SKIP_EXTERNAL_TOOLCHAINS="yes"
+          REPOSITORY_INSTALL="u-boot,kernel,armbian-bsp-cli,armbian-bsp-desktop,armbian-desktop,armbian-config,armbian-firmware,armbian-zsh"
+          echo "DEPLOYFOLDER=$MAKE_FOLDERS" >> $GITHUB_ENV
+          var="${{ inputs.variant }}"
+
+          CHUNK="${{ matrix.node }}"
+          LINE=$(echo $CHUNK | cut -d":" -f1)
+          BOARD=$(echo $CHUNK | cut -d":" -f2)
+          echo "BOARD=$BOARD" >> $GITHUB_ENV
+          LINIJA="cat config/${FILENAME} | grep -v \"^$\" | grep -v \"^#\" | ${{ inputs.include }} ${{ inputs.exclude }} sed -n ''$LINE'p'"
+          read -r BOARD BRANCH RELEASE BUILD_TARGET BUILD_STABILITY BUILD_IMAGE DESKTOP_ENVIRONMENT DESKTOP_ENVIRONMENT_CONFIG_NAME DESKTOP_APPGROUPS_SELECTED \
+          <<< $(eval $LINIJA)
+          DESKTOP_APPGROUPS_SELECTED="${DESKTOP_APPGROUPS_SELECTED//,/ }"
+          BUILD_DESKTOP="no"
+          BUILD_MINIMAL="no"
+          [[ ${BUILD_TARGET} == "desktop" ]] && BUILD_DESKTOP="yes"
+          [[ ${BUILD_TARGET} == "minimal" ]] && BUILD_MINIMAL="yes"
+          [[ ! -f .ignore_changes ]] && sudo touch .ignore_changes
+
+          sudo sed -i "s/-it --rm/-i --rm/" userpatches/config-docker.conf          
+          ./compile.sh docker \
+          BETA="${BETA}" \
+          RELEASE="${RELEASE}" \
+          KERNEL_ONLY="no" \
+          SKIP_EXTERNAL_TOOLCHAINS="$SKIP_EXTERNAL_TOOLCHAINS" \
+          IGNORE_UPDATES="yes" \
+          SYNC_CLOCK="no" \
+          DESKTOP_ENVIRONMENT_CONFIG_NAME="$DESKTOP_ENVIRONMENT_CONFIG_NAME" \
+          BUILD_DESKTOP="$BUILD_DESKTOP" \
+          BUILD_MINIMAL="$BUILD_MINIMAL" \
+          DESKTOP_ENVIRONMENT="${DESKTOP_ENVIRONMENT}" \
+          KERNEL_CONFIGURE="no" \
+          BOARD="$BOARD" \
+          LOG_SUBPATH="debug/$BOARD" \
+          BRANCH="$BRANCH" \
+          MAKE_FOLDERS="$MAKE_FOLDERS" \
+          IMAGE_PRESENT="no" \
+          BUILD_ALL="yes" \
+          USE_MAINLINE_GOOGLE_MIRROR="yes" \
+          ARMBIAN_CACHE_TOOLCHAIN_PATH="${ARMBIAN_CACHE_TOOLCHAIN_PATH}" \
+          ARMBIAN_CACHE_ROOTFS_PATH="${ARMBIAN_CACHE_ROOTFS_PATH}" \
+          REPOSITORY_INSTALL="$REPOSITORY_INSTALL" \
+          DESKTOP_APPGROUPS_SELECTED="$DESKTOP_APPGROUPS_SELECTED" \
+          EXPERT="yes"
+          
+          sudo chown -R $USER.$USER output/images/$BOARD 2> /dev/null || true
+          sudo chmod 644 output/images/$BOARD/*/*.xz  2> /dev/null || true
+          echo ${{ secrets.GPG_PASSPHRASE }} | gpg --passphrase-fd 0 --armor --detach-sign --pinentry-mode loopback --batch --yes output/images/$BOARD/$MAKE_FOLDERS/*.img.xz
+
+      - name: Install SSH key for storage
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.SSHKEY }}
+          known_hosts: ${{ secrets.SSHKNOWNHOSTS }}
+          if_key_exists: replace
+
+      - name: Deploy to server
+        run: |
+          #echo $(ls build/output/images)
+          ls -l build/output/images/
+          #sudo apt-get -y -qq install lftp          
+          #lftp -u upload, -e "set net:timeout 4;set net:max-retries 6;mirror --Remove-source-files -R --no-empty-dirs --parallel=8 --no-perms $(pwd)/build/output/images/ images/ ;bye" sftp://users.armbian.com
+
+      - name: Upload artefacts
+        if: inputs.uploading == 'true' && env.UPLOAD == 'true'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.TOKEN }}
+          file: build/output/images/Armbian*
+          tag: "${{ env.BOARD }}/${{ env.DEPLOYFOLDER }}"
+          overwrite: true
+          file_glob: true
+          body: "<p align='center'><a href='https://www.armbian.com'><img src='https://raw.githubusercontent.com/armbian/.github/master/profile/tux-two.png' width='400' height='226' alt='Armbian Linux'></a></p>"
