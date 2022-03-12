@@ -136,7 +136,6 @@ jobs:
 
       - name: Pull Docker image
         run: |
-
           [[ -z $(command -v docker) ]] && sudo apt-get -yy install docker containerd docker.io
           sudo docker kill $(sudo docker ps -q) 2>/dev/null || true          
           sudo docker image rm $(sudo docker images | grep -v $(cat build/VERSION | sed 's/trunk.*/trunk/')"-$(dpkg --print-architecture)" | awk 'NR>1 {print $3}') 2> /dev/null || true 
@@ -151,12 +150,10 @@ jobs:
           sudo pkill aarch64-binfmt-P || true
           sudo pkill pixz || true
           sudo rm -rf build/.tmp
-          
           [[ -d build/.git ]] && sudo chown -R $USER:$USER build/.git || true
           [[ -d build/output/images ]] && sudo rm -rf build/output/images/* || true
-         
-      - name: Import GPG key
 
+      - name: Import GPG key
         uses: crazy-max/ghaction-import-gpg@v3
         with:
           gpg-private-key: ${{ secrets.GPG_SIGNING_KEY }}
@@ -170,14 +167,14 @@ jobs:
 
           #export TERM=dumb
           cd build
-          
+
           var="${{ inputs.variant }}"
           RC="no"
           if [[ "$var" != *beta ]]; then
             FILENAME="targets.conf | grep ${var%:*} | grep \"yes\|adv\""
             MAKE_FOLDERS=archive
             OLD="ghcr.io/armbian/build:$(cat VERSION  | cut -d"." -f1-2)"-$(dpkg --print-architecture)
-            sudo git checkout master              
+            sudo git checkout master
             sudo cp ../scripts/VERSION .
             sudo docker tag $OLD ghcr.io/armbian/build:$(cat VERSION)-$(dpkg --print-architecture)
             # we use nightly repository, but change back to stable right before closing image
@@ -186,11 +183,12 @@ jobs:
             if [[ "$var" == *rc ]]; then
               MAKE_FOLDERS=rc
             fi
+            BETA="no"
           else
             FILENAME="targets-${var%:*}-beta.conf"
             MAKE_FOLDERS=nightly
+            BETA="yes"
           fi
-          BETA="yes"
           SKIP_EXTERNAL_TOOLCHAINS="yes"
           REPOSITORY_INSTALL="u-boot,kernel,armbian-bsp-cli,armbian-bsp-desktop,armbian-desktop,armbian-config,armbian-firmware,armbian-zsh"
           echo "DEPLOYFOLDER=$MAKE_FOLDERS" >> $GITHUB_ENV
@@ -235,7 +233,7 @@ jobs:
           REPOSITORY_INSTALL="$REPOSITORY_INSTALL" \
           DESKTOP_APPGROUPS_SELECTED="$DESKTOP_APPGROUPS_SELECTED" \
           EXPERT="yes"
-          
+
           sudo chown -R $USER.$USER output/images/$BOARD 2> /dev/null || true
           sudo chmod 644 output/images/$BOARD/*/*.xz  2> /dev/null || true
           echo ${{ secrets.GPG_PASSPHRASE }} | gpg --passphrase-fd 0 --armor --detach-sign --pinentry-mode loopback --batch --yes output/images/$BOARD/$MAKE_FOLDERS/*.img.xz
@@ -252,7 +250,8 @@ jobs:
           #echo $(ls build/output/images)
           #ls -l build/output/images/
           find build/output/images/
-          #sudo apt-get -y -qq install lftp          
+          echo ${{ matrix.node }} ! ${{ inputs.variant }}
+          #sudo apt-get -y -qq install lftp
           #lftp -u upload, -e "set net:timeout 4;set net:max-retries 6;mirror --Remove-source-files -R --no-empty-dirs --parallel=8 --no-perms $(pwd)/build/output/images/ images/ ;bye" sftp://users.armbian.com
 
       - name: Upload artefacts
