@@ -144,7 +144,7 @@ jobs:
           sudo docker image rm $(sudo docker images | grep -v $(cat build/VERSION | sed 's/trunk.*/trunk/')"-$(dpkg --print-architecture)" | awk 'NR>1 {print $3}') 2> /dev/null || true 
           #sudo docker pull ghcr.io/armbian/build:$(cat build/VERSION  | cut -d"." -f1-2)"-$(dpkg --print-architecture)"
 
-      - name: Fix permissions
+      - name: Fix permissions and clean
         run: |
           # make sure no temporally dirs are mounted from previous runs
           #sudo docker volume rm $(sudo docker volume ls -q) 2> /dev/null || true
@@ -154,7 +154,7 @@ jobs:
           sudo pkill pixz || true
           sudo rm -rf build/.tmp
           [[ -d build/.git ]] && sudo chown -R $USER:$USER build/.git || true
-          [[ -d build/output/images ]] && sudo rm -rf build/output/* || true
+          #!!!FIX [[ -d build/output/images ]] && sudo rm -rf build/output/* || true
 
       - name: Import GPG key
         uses: crazy-max/ghaction-import-gpg@v3
@@ -256,7 +256,7 @@ jobs:
           #REPOSITORY_INSTALL="u-boot,kernel,armbian-bsp-cli,armbian-bsp-desktop,armbian-desktop,armbian-config,armbian-firmware,armbian-zsh"
 
           sudo sed -i "s/ -it / -i /" userpatches/config-docker.conf
-          ./compile.sh docker \
+          # !!!FIX ./compile.sh docker \
           BETA="${BETA}" \
           RELEASE="${RELEASE}" \
           KERNEL_ONLY="no" \
@@ -293,9 +293,11 @@ jobs:
           if [[ "$var" != *beta ]]; then
             LINUXDEB="output/debs/linux-image-${BRANCH}-meson64_${VERSION}_arm64.deb"
             UBOOTDEB="debs/linux-u-boot-${BRANCH}-${BOARD}_${VERSION}_arm64.deb
+            echo ! $LINUXDEB !
           else
             LINUXDEB="output/debs-beta/linux-image-${BRANCH}-meson64_${VERSION}_arm64.deb"
             UBOOTDEB="debs-beta/linux-u-boot-${BRANCH}-${BOARD}_${VERSION}_arm64.deb
+            echo ! $LINUXDEB !
           fi
           LINUXVER=$(dpkg --info ${LINUXDEB} | awk -F"-" '/Source:/{print $2}')
           echo "LINUXVER=${LINUXVER}"  >> $GITHUB_ENV
