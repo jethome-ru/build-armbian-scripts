@@ -183,7 +183,7 @@ jobs:
 
           if [[ "$var" != *beta ]]; then
            FILENAME="targets.conf | grep \"yes\|adv\""
-            MAKE_FOLDERS="release"
+            MAKE_FOLDERS="archive"
             if [[ "$var" == *rc ]]; then
               MAKE_FOLDERS="rc"
             fi
@@ -331,6 +331,7 @@ jobs:
             [[ -d output/usr/lib/linux*/uboot.nosd.bin ]] && cp output/usr/lib/linux*/u-boot.nosd.bin src/j80/u-boot.armbian.bin
             ./convert.sh ../build/output/images/${IMAGENAME} h1 armbian compress output/usr/lib/linux*/u-boot.nosd.bin 
           fi
+          sudo rm -rf output/usr
 
       - name: Deploy to server
         run: |
