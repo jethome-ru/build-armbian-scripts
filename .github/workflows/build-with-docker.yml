@@ -335,7 +335,7 @@ jobs:
       - name: Deploy to server
         run: |
           cd build
-          rsync -avr output/images/${BOARD}/${DEPLOYFOLDER}/ repo@update.jethome.ru:/var/www/update.jethome.ru/armbian/${DEPLOYFOLDER}/${BOARD}/
+          rsync -avr --rsync-path="mkdir -p /var/www/update.jethome.ru/armbian/${DEPLOYFOLDER}/${BOARD}/burn && rsync" output/images/${BOARD}/${DEPLOYFOLDER}/ repo@update.jethome.ru:/var/www/update.jethome.ru/armbian/${DEPLOYFOLDER}/${BOARD}/
           cd ../tools
           rsync -avr output/ repo@update.jethome.ru:/var/www/update.jethome.ru/armbian/${DEPLOYFOLDER}/${BOARD}/burn/
 
