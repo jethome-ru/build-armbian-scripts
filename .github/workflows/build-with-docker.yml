@@ -155,10 +155,6 @@ jobs:
          echo "JETHOME_CI_FIRMW_DIR=testing" >> $GITHUB_ENV
          echo "SUDO_USER=actions" >>$GITHUB_ENV
          echo "TERM=xterm" >> $GITHUB_ENV
-         [[ -e ../scripts/VER ]] && VER="$(cat ../scripts/VER)"
-         [[ -z $VER ]] && VER="0"
-         cp VERSION VERSION.old
-         sed -i "s/$/.jethome.$VER/" VERSION
 
       - name: Pull Docker image
         run: |
@@ -224,6 +220,12 @@ jobs:
           [[ ${BUILD_TARGET} == "minimal" ]] && BUILD_MINIMAL="yes"
           [[ ! -f .ignore_changes ]] && sudo touch .ignore_changes
 
+          [[ -e ../scripts/VER ]] && VER="$(cat ../scripts/VER)"
+          [[ -z $VER ]] && VER="0"
+          cp -f VERSION VERSION.old
+          sed -i "s/$/.jethome.$VER/" VERSION
+
+
           VERSION=$(cat VERSION)
           echo "VERSION=${VERSION}"  >> $GITHUB_ENV
           echo "BETA=${BETA}"  >> $GITHUB_ENV
@@ -247,7 +249,6 @@ jobs:
             # we use nightly repository, but change back to stable right before closing image
             echo "#!""/bin/bash" | sudo tee userpatches/customize-image.sh
             echo "sed -i 's/beta/apt/' /etc/apt/sources.list.d/armbian.list" | sudo tee -a userpatches/customize-image.sh
-          else
           fi
           SKIP_EXTERNAL_TOOLCHAINS="no"
           #REPOSITORY_INSTALL="u-boot,kernel,armbian-bsp-cli,armbian-bsp-desktop,armbian-desktop,armbian-config,armbian-firmware,armbian-zsh"
