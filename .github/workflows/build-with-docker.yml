@@ -189,7 +189,9 @@ jobs:
           RC="no"
 
           if [[ "$var" != *beta ]]; then
-           FILENAME="targets.conf | grep \"yes\|adv\""
+            FILENAME="targets.conf | grep \"yes\|adv\""
+            sudo cp ../armbian-scripts/VERSION .
+
             MAKE_FOLDERS="archive"
             if [[ "$var" == *rc ]]; then
               MAKE_FOLDERS="rc"
@@ -242,20 +244,10 @@ jobs:
           var="${{ inputs.variant }}"
           RC="no"
           if [[ "$var" != *beta ]]; then
-            FILENAME="targets.conf | grep ${var%:*} | grep \"yes\|adv\""
-            MAKE_FOLDERS=archive
-            sudo cp ../armbian-scripts/VERSION .
             # we use nightly repository, but change back to stable right before closing image
             echo "#!""/bin/bash" | sudo tee userpatches/customize-image.sh
             echo "sed -i 's/beta/apt/' /etc/apt/sources.list.d/armbian.list" | sudo tee -a userpatches/customize-image.sh
-            if [[ "$var" == *rc ]]; then
-              MAKE_FOLDERS=rc
-            fi
-            BETA="no"
           else
-            FILENAME="targets-${var%:*}-beta.conf"
-            MAKE_FOLDERS=nightly
-            BETA="yes"
           fi
           SKIP_EXTERNAL_TOOLCHAINS="no"
           #REPOSITORY_INSTALL="u-boot,kernel,armbian-bsp-cli,armbian-bsp-desktop,armbian-desktop,armbian-config,armbian-firmware,armbian-zsh"
