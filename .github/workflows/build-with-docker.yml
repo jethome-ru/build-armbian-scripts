@@ -126,6 +126,22 @@ jobs:
           ref: ${{ inputs.sourcerepo }} 
           clean: false
 
+      - name: Import GPG key
+        uses: crazy-max/ghaction-import-gpg@v3
+        with:
+          gpg-private-key: ${{ secrets.GPG_SIGNING_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+          workdir: scripts
+          git-user-signingkey: true
+          git-commit-gpgsign: true
+        
+      - name: Install SSH key for storage
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.SSHKEY }}
+          known_hosts: ${{ secrets.SSHKNOWNHOSTS }}
+          if_key_exists: replace
+        
       - name: Sync
         run: |
 
@@ -164,22 +180,6 @@ jobs:
           [[ -d build/output/images ]] && sudo rm -rf build/output/* || true
           [[ -d tools/output ]] && sudo rm -rf tools/output/* || true
 
-      - name: Import GPG key
-        uses: crazy-max/ghaction-import-gpg@v3
-        with:
-          gpg-private-key: ${{ secrets.GPG_SIGNING_KEY }}
-          passphrase: ${{ secrets.GPG_PASSPHRASE }}
-          workdir: scripts
-          git-user-signingkey: true
-          git-commit-gpgsign: true
-        
-      - name: Install SSH key for storage
-        uses: shimataro/ssh-key-action@v2
-        with:
-          key: ${{ secrets.SSHKEY }}
-          known_hosts: ${{ secrets.SSHKNOWNHOSTS }}
-          if_key_exists: replace
-        
       - name: Prepare vars
         run: |
           cd build
@@ -357,12 +357,6 @@ jobs:
           echo $LINUXVER
           ls output/images/$FILEBASE
           echo Fire to fw.jethome.ru!
-
-      - name: Revert VERSION
-        run: |
-          cd build
-          rm VERSION
-          mv VERSION.old VERSION
 
       - name: Upload artefacts
         if: inputs.uploading == 'true' && env.UPLOAD == 'true'
