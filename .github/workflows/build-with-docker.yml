@@ -204,6 +204,7 @@ jobs:
           BOARD=$(echo $CHUNK | cut -d":" -f2)
 
           echo "DEPLOYFOLDER=$MAKE_FOLDERS" >> $GITHUB_ENV
+          echo "MAKE_FOLDERS=$MAKE_FOLDERS" >> $GITHUB_ENV
           echo "CHUNK=$CHUNK" >> $GITHUB_ENV
           echo "LINE=$LINE" >> $GITHUB_ENV
           echo "BOARD=$BOARD" >> $GITHUB_ENV
