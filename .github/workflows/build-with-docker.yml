@@ -290,6 +290,8 @@ jobs:
           cd build
           # beta/rc/stable
           var="${{ inputs.variant }}"
+          echo var=$var
+          echo [[ "$var" != *beta ]]
           if [[ "$var" != *beta ]]; then
             LINUXDEB="output/debs/linux-image-${BRANCH}-meson64_${VERSION}_arm64.deb"
             UBOOTDEB="debs/linux-u-boot-${BRANCH}-${BOARD}_${VERSION}_arm64.deb
@@ -299,6 +301,8 @@ jobs:
             UBOOTDEB="debs-beta/linux-u-boot-${BRANCH}-${BOARD}_${VERSION}_arm64.deb
             echo ! $LINUXDEB !
           fi
+
+          echo LINUXVER=$(dpkg --info ${LINUXDEB} | awk -F"-" '/Source:/{print $2}')
           LINUXVER=$(dpkg --info ${LINUXDEB} | awk -F"-" '/Source:/{print $2}')
           echo "LINUXVER=${LINUXVER}"  >> $GITHUB_ENV
           echo "UBOOTDEB=${UBOOTDEB}"  >> $GITHUB_ENV
