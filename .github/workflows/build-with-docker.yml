@@ -154,7 +154,8 @@ jobs:
           sudo pkill pixz || true
           sudo rm -rf build/.tmp
           [[ -d build/.git ]] && sudo chown -R $USER:$USER build/.git || true
-          #!!!FIX [[ -d build/output/images ]] && sudo rm -rf build/output/* || true
+          [[ -d build/output/images ]] && sudo rm -rf build/output/* || true
+          [[ -d tools/output ]] && sudo rm -rf tools/output/* || true
 
       - name: Import GPG key
         uses: crazy-max/ghaction-import-gpg@v3
@@ -256,7 +257,7 @@ jobs:
           #REPOSITORY_INSTALL="u-boot,kernel,armbian-bsp-cli,armbian-bsp-desktop,armbian-desktop,armbian-config,armbian-firmware,armbian-zsh"
 
           sudo sed -i "s/ -it / -i /" userpatches/config-docker.conf
-          # !!!FIX ./compile.sh docker \
+          ./compile.sh docker \
           BETA="${BETA}" \
           RELEASE="${RELEASE}" \
           KERNEL_ONLY="no" \
@@ -324,11 +325,11 @@ jobs:
           IMAGENAME="${BOARD}/${DEPLOYFOLDER}/Armbian_${VERSION}_${BOARD^}_${RELEASE}_${BRANCH}_${LINUXVER}.img.xz"
           if [[ "${BOARD}" == "jethubj100" ]]; then
             [[ -d output/usr/lib/linux*/uboot.nosd.bin ]] && cp output/usr/lib/linux*/u-boot.nosd.bin src/j100/u-boot.armbian.bin
-            echo ./convert.sh ../build/output/images/${IMAGENAME} d1 armbian compress output/usr/lib/linux*/u-boot.nosd.bin 
+            ./convert.sh ../build/output/images/${IMAGENAME} d1 armbian compress output/usr/lib/linux*/u-boot.nosd.bin 
 
           else
             [[ -d output/usr/lib/linux*/uboot.nosd.bin ]] && cp output/usr/lib/linux*/u-boot.nosd.bin src/j80/u-boot.armbian.bin
-            echo ./convert.sh ../build/output/images/${IMAGENAME} h1 armbian compress output/usr/lib/linux*/u-boot.nosd.bin 
+            ./convert.sh ../build/output/images/${IMAGENAME} h1 armbian compress output/usr/lib/linux*/u-boot.nosd.bin 
           fi
           rm -rf output/*
 
@@ -338,15 +339,6 @@ jobs:
           rsync -avr --rsync-path="mkdir -p /var/www/update.jethome.ru/armbian/${DEPLOYFOLDER}/${BOARD}/burn && rsync" output/images/${BOARD}/${DEPLOYFOLDER}/ repo@update.jethome.ru:/var/www/update.jethome.ru/armbian/${DEPLOYFOLDER}/${BOARD}/
           cd ../tools
           rsync -avr output/ repo@update.jethome.ru:/var/www/update.jethome.ru/armbian/${DEPLOYFOLDER}/${BOARD}/burn/
-
-          #echo $(ls build/output/images)
-          #ls -l build/output/images/
-          find build/output/images/
-          echo ${{ matrix.node }} ! ${{ inputs.variant }}
-          # build/output/images/${{ matrix.node }}/nightly/
-          # Armbian_22.05.0-trunk.0006.jethome.0_Jethubj100_sid_edge_5.15.28.img.xz
-          #sudo apt-get -y -qq install lftp
-          #lftp -u upload, -e "set net:timeout 4;set net:max-retries 6;mirror --Remove-source-files -R --no-empty-dirs --parallel=8 --no-perms $(pwd)/build/output/images/ images/ ;bye" sftp://users.armbian.com
 
       - name: Deploy to fw.jethome.ru
         run: |
