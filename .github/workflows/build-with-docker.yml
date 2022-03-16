@@ -331,7 +331,6 @@ jobs:
             [[ -d output/usr/lib/linux*/uboot.nosd.bin ]] && cp output/usr/lib/linux*/u-boot.nosd.bin src/j80/u-boot.armbian.bin
             ./convert.sh ../build/output/images/${IMAGENAME} h1 armbian compress output/usr/lib/linux*/u-boot.nosd.bin 
           fi
-          rm -rf output/*
 
       - name: Deploy to server
         run: |
