@@ -96,11 +96,18 @@ jobs:
         node: ${{fromJson(needs.Prepare.outputs.matrix)}}
     runs-on: ${{ inputs.runner }}
     steps:
-      - name: Checkout scripts repository
+      - name: Checkout jethome-scripts repository
         uses: actions/checkout@v2
         with:
           repository: jethome-ru/build-armbian-scripts
           path: scripts
+          ref: master
+
+      - name: Checkout armbian-scripts repository
+        uses: actions/checkout@v2
+        with:
+          repository: armbian/scripts
+          path: armbian-scripts
           ref: master
 
       - name: Checkout armbian-tools repository
@@ -237,10 +244,7 @@ jobs:
           if [[ "$var" != *beta ]]; then
             FILENAME="targets.conf | grep ${var%:*} | grep \"yes\|adv\""
             MAKE_FOLDERS=archive
-            OLD="ghcr.io/armbian/build:$(cat VERSION  | cut -d"." -f1-2)"-$(dpkg --print-architecture)
-            sudo git checkout master
-            sudo cp ../scripts/VERSION .
-            sudo docker tag $OLD ghcr.io/armbian/build:$(cat VERSION)-$(dpkg --print-architecture)
+            sudo cp ../armbian-scripts/VERSION .
             # we use nightly repository, but change back to stable right before closing image
             echo "#!""/bin/bash" | sudo tee userpatches/customize-image.sh
             echo "sed -i 's/beta/apt/' /etc/apt/sources.list.d/armbian.list" | sudo tee -a userpatches/customize-image.sh
