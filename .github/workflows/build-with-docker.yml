@@ -345,9 +345,57 @@ jobs:
           if [[ -z "${{ secrets.FWUPLOAD }}" ]]; then 
             exit 0
           fi
-
+          
+          # upload only current kernel to release/rc and edge kernel to nightly
           var="${{ inputs.variant }}"
-          FILEBASE="${BOARD}/${DEPLOYFOLDER}/Armbian_${VERSION}_${BOARD^}_${RELEASE}_${BRANCH}_${LINUXVER}.img.xz"
+          if [[ "$var" != *beta ]]; then
+            if [[ ${BRANCH} == "edge" ]]; then
+              exit 0
+            fi
+            BETA="release"
+            if [[ "$var" == *rc ]]; then
+              BETA="rc"
+          else
+            if [[ ${BRANCH} == "current" ]]; then
+              exit 0
+            fi
+            BETA="beta"
+          fi
+
+          IMAGENAME="${BOARD}/${DEPLOYFOLDER}/Armbian_${VERSION}_${BOARD^}_${RELEASE}_${BRANCH}_${LINUXVER}.img.xz"
+          hash_pgp=output/images/${BOARD}}/${DEPLOYFOLDER}/${IMAGENAME}.asc
+
+
+          curl -H "Authorization: Bearer ${{ secrets.FWUPLOAD }}" \
+            -F "hash_pgp=@${hash_pgp}" \
+            -F 'vendor="jethome"' \
+            -F 'platform="'"${BOARD:6}"'"' \
+            -F 'firmware_type="armbian.'${RELEASE}.${BETA}'"' \
+            -F 'environment="sdcard"' \
+            -F 'version="'${VERSION}'"' \
+            -F 'release_date="'$(date -Iseconds)'"' \
+            -F "firmware_file=@output/images/${BOARD}/${DEPLOTFOLDER}/${IMAGENAME}" \
+            -F "update_latest_ref=true" \
+            -F "force_overwrite=true" \
+            "https://fw.jethome.ru/api/upload_firmware/"
+
+          cd ../tools
+
+          IMAGENAMEBURN="${BOARD}/${DEPLOYFOLDER}/Armbian_${VERSION}_${BOARD^}_${RELEASE}_${BRANCH}_${LINUXVER}.burn.img.xz"
+          hash_pgp=output/${IMAGENAMEBURN}.asc
+
+          curl -H "Authorization: Bearer ${{ secrets.FWUPLOAD }}" \
+            -F "hash_pgp=@${hash_pgp}" \
+            -F 'vendor="jethome"' \
+            -F 'platform="'"${BOARD:6}"'"' \
+            -F 'firmware_type="armbian.'${RELEASE}.${BETA}'"' \
+            -F 'environment="burn"' \
+            -F 'version="'${VERSION}'"' \
+            -F 'release_date="'$(date -Iseconds)'"' \
+            -F "firmware_file=@output/${IMAGENAME}" \
+            -F "update_latest_ref=true" \
+            -F "force_overwrite=true" \
+            "https://fw.jethome.ru/api/upload_firmware/"
           echo $FILEBASE
           echo $LINUXVER
           ls output/images/$FILEBASE
