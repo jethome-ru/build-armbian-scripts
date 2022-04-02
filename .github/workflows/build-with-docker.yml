@@ -79,14 +79,14 @@ jobs:
           else
             FILENAME="targets-${var%:*}-beta.conf"
           fi
-          
+
           # if we want to split more
           # MATRIX=$(split --number=l/${{ inputs.part }}/${{ inputs.of }} <<<
-                  
+
           MATRIX="cat build/config/"${FILENAME}" | grep -v \"^$\" | grep -v \"^#\" |  ${{ inputs.include }} ${{ inputs.exclude }}  cut -f1 -d ' ' | pr -t -n4 | tr -s '[:blank:]' ':' | cut -d\":\" -f2,3"
           #[ -s changes ] || unset MATRIX
           echo ::set-output name=matrix::$(for x in $(eval $MATRIX); do echo $x; done|jq -cnR '[inputs | select(length>0)]' | jq)
-       
+
   image:
     needs: Prepare
     if: ${{ needs.Prepare.outputs.matrix != '[]' && needs.Prepare.outputs.matrix != '' }}
@@ -134,14 +134,14 @@ jobs:
           workdir: scripts
           git-user-signingkey: true
           git-commit-gpgsign: true
-        
+
       - name: Install SSH key for storage
         uses: shimataro/ssh-key-action@v2
         with:
           key: ${{ secrets.SSHKEY }}
           known_hosts: ${{ secrets.SSHKNOWNHOSTS }}
           if_key_exists: replace
-        
+
       - name: Sync
         run: |
 
@@ -342,10 +342,10 @@ jobs:
       - name: Deploy to fw.jethome.ru
         run: |
           cd build
-          if [[ -z "${{ secrets.FWUPLOAD }}" ]]; then 
+          if [[ -z "${{ secrets.FWUPLOAD }}" ]]; then
             exit 0
           fi
-          
+
           # upload only current kernel to release/rc and edge kernel to nightly
           var="${{ inputs.variant }}"
           if [[ "$var" != *beta ]]; then
@@ -355,6 +355,7 @@ jobs:
             BETA="release"
             if [[ "$var" == *rc ]]; then
               BETA="rc"
+            fi
           else
             if [[ ${BRANCH} == "current" ]]; then
               exit 0
@@ -362,18 +363,19 @@ jobs:
             BETA="beta"
           fi
 
-          IMAGENAME="${BOARD}/${DEPLOYFOLDER}/Armbian_${VERSION}_${BOARD^}_${RELEASE}_${BRANCH}_${LINUXVER}.img.xz"
-          hash_pgp=output/images/${BOARD}}/${DEPLOYFOLDER}/${IMAGENAME}.asc
-
-
-          curl -H "Authorization: Bearer ${{ secrets.FWUPLOAD }}" \
-            -F "hash_pgp=@${hash_pgp}" \
+          datenow="$(date -Iseconds)"
+          IMAGENAME="Armbian_${VERSION}_${BOARD^}_${RELEASE}_${BRANCH}_${LINUXVER}.img.xz"
+          hash_pgp="${IMAGENAME}.asc"
+          echo First upload
+          ls output/images/${BOARD}/${DEPLOYFOLDER}/
+          echo curl -H "Authorization: Bearer ${{ secrets.FWUPLOAD }}" \
+            -F "hash_pgp=@output/images/${BOARD}/${DEPLOYFOLDER}/${hash_pgp}" \
             -F 'vendor="jethome"' \
-            -F 'platform="'"${BOARD:6}"'"' \
+            -F 'platform="'${BOARD:6}'"' \
             -F 'firmware_type="armbian.'${RELEASE}.${BETA}'"' \
             -F 'environment="sdcard"' \
             -F 'version="'${VERSION}'"' \
-            -F 'release_date="'$(date -Iseconds)'"' \
+            -F 'release_date="'${datenow}'"' \
             -F "firmware_file=@output/images/${BOARD}/${DEPLOTFOLDER}/${IMAGENAME}" \
             -F "update_latest_ref=true" \
             -F "force_overwrite=true" \
@@ -381,24 +383,26 @@ jobs:
 
           cd ../tools
 
-          IMAGENAMEBURN="${BOARD}/${DEPLOYFOLDER}/Armbian_${VERSION}_${BOARD^}_${RELEASE}_${BRANCH}_${LINUXVER}.burn.img.xz"
-          hash_pgp=output/${IMAGENAMEBURN}.asc
+          IMAGENAMEBURN="Armbian_${VERSION}_${BOARD^}_${RELEASE}_${BRANCH}_${LINUXVER}.burn.img.xz"
+          hash_pgp="${IMAGENAMEBURN}.asc"
 
-          curl -H "Authorization: Bearer ${{ secrets.FWUPLOAD }}" \
-            -F "hash_pgp=@${hash_pgp}" \
+          echo Second upload
+          ls output/
+
+          echo curl -H "Authorization: Bearer ${{ secrets.FWUPLOAD }}" \
+            -F "hash_pgp=@output/${hash_pgp}" \
             -F 'vendor="jethome"' \
             -F 'platform="'"${BOARD:6}"'"' \
             -F 'firmware_type="armbian.'${RELEASE}.${BETA}'"' \
             -F 'environment="burn"' \
             -F 'version="'${VERSION}'"' \
-            -F 'release_date="'$(date -Iseconds)'"' \
-            -F "firmware_file=@output/${IMAGENAME}" \
+            -F 'release_date="'${datenow}'"' \
+            -F "firmware_file=@output/${IMAGENAMEBURN}" \
             -F "update_latest_ref=true" \
             -F "force_overwrite=true" \
             "https://fw.jethome.ru/api/upload_firmware/"
-          echo $FILEBASE
+
           echo $LINUXVER
-          ls output/images/$FILEBASE
           echo Fire to fw.jethome.ru!
 
       - name: Upload artefacts
