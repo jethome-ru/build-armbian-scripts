@@ -368,7 +368,7 @@ jobs:
           hash_pgp="${IMAGENAME}.asc"
           echo First upload
           ls output/images/${BOARD}/${DEPLOYFOLDER}/
-          echo curl -H "Authorization: Bearer ${{ secrets.FWUPLOAD }}" \
+          curl -H "Authorization: Bearer ${{ secrets.FWUPLOAD }}" \
             -F "hash_pgp=@output/images/${BOARD}/${DEPLOYFOLDER}/${hash_pgp}" \
             -F 'vendor="jethome"' \
             -F 'platform="'${BOARD:6}'"' \
@@ -389,7 +389,7 @@ jobs:
           echo Second upload
           ls output/
 
-          echo curl -H "Authorization: Bearer ${{ secrets.FWUPLOAD }}" \
+          curl -H "Authorization: Bearer ${{ secrets.FWUPLOAD }}" \
             -F "hash_pgp=@output/${hash_pgp}" \
             -F 'vendor="jethome"' \
             -F 'platform="'"${BOARD:6}"'"' \
