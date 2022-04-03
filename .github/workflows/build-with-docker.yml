@@ -376,7 +376,7 @@ jobs:
             -F 'environment="sdcard"' \
             -F 'version="'${VERSION}'"' \
             -F 'release_date="'${datenow}'"' \
-            -F "firmware_file=@output/images/${BOARD}/${DEPLOTFOLDER}/${IMAGENAME}" \
+            -F "firmware_file=@output/images/${BOARD}/${DEPLOYFOLDER}/${IMAGENAME}" \
             -F "update_latest_ref=true" \
             -F "force_overwrite=true" \
             "https://fw.jethome.ru/api/upload_firmware/"
