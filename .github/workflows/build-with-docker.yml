@@ -352,7 +352,7 @@ jobs:
             if [[ ${BRANCH} == "edge" ]]; then
               exit 0
             fi
-            BETA="release"
+            BETA="stable"
             if [[ "$var" == *rc ]]; then
               BETA="rc"
             fi
