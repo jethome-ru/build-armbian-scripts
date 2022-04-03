@@ -366,7 +366,7 @@ jobs:
           datenow="$(date -Iseconds)"
           IMAGENAME="Armbian_${VERSION}_${BOARD^}_${RELEASE}_${BRANCH}_${LINUXVER}.img.xz"
           hash_pgp="${IMAGENAME}.asc"
-          echo First upload
+          echo First upload firmware_type=armbian.${RELEASE}.${BETA}
           ls output/images/${BOARD}/${DEPLOYFOLDER}/
           curl -H "Authorization: Bearer ${{ secrets.FWUPLOAD }}" \
             -F "hash_pgp=@output/images/${BOARD}/${DEPLOYFOLDER}/${hash_pgp}" \
@@ -386,7 +386,7 @@ jobs:
           IMAGENAMEBURN="Armbian_${VERSION}_${BOARD^}_${RELEASE}_${BRANCH}_${LINUXVER}.burn.img.xz"
           hash_pgp="${IMAGENAMEBURN}.asc"
 
-          echo Second upload
+          echo Second upload firmware_type=armbian.${RELEASE}.${BETA}
           ls output/
 
           curl -H "Authorization: Bearer ${{ secrets.FWUPLOAD }}" \
