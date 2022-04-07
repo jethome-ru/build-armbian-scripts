@@ -186,6 +186,9 @@ jobs:
 
       - name: Prepare vars
         run: |
+          cat scripts/targets.conf >> build/config/targets.conf
+          cat scripts/targets-cli-beta.conf >> build/config/targets-cli-beta.conf
+
           cd build
 
           # beta/rc/stable
@@ -217,7 +220,7 @@ jobs:
           echo "LINE=$LINE" >> $GITHUB_ENV
           echo "BOARD=$BOARD" >> $GITHUB_ENV
 
-          LINIJA="cat config/${FILENAME} | grep -v \"^$\" | grep -v \"^#\" | ${{ inputs.include }} ${{ inputs.exclude }} sed -n ''$LINE'p'"
+          LINIJA="cat config/${FILENAME} | sort | uniq | grep -v \"^$\" | grep -v \"^#\" | ${{ inputs.include }} ${{ inputs.exclude }} sed -n ''$LINE'p'"
           read -r BOARD BRANCH RELEASE BUILD_TARGET BUILD_STABILITY BUILD_IMAGE DESKTOP_ENVIRONMENT DESKTOP_ENVIRONMENT_CONFIG_NAME DESKTOP_APPGROUPS_SELECTED \
           <<< $(eval $LINIJA)
 
