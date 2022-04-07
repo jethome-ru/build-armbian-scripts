@@ -265,6 +265,7 @@ jobs:
           sudo sed -i "s/ -it / -i /" userpatches/config-docker.conf
           ./compile.sh docker \
           BETA="${BETA}" \
+          SKIP_BOOTSPLASH="yes" \
           RELEASE="${RELEASE}" \
           KERNEL_ONLY="no" \
           SKIP_EXTERNAL_TOOLCHAINS="$SKIP_EXTERNAL_TOOLCHAINS" \
