@@ -60,6 +60,12 @@ jobs:
           path: build
           ref: ${{ inputs.sourcerepo }}
           clean: false
+      - name: Checkout jethome-scripts repository
+        uses: actions/checkout@v2
+        with:
+          repository: jethome-ru/build-armbian-scripts
+          path: scripts
+          ref: master
 
       - name: Remove previous artefacts if any
         run: |
@@ -73,6 +79,8 @@ jobs:
       - name: Prepare matrix
         id: list_dirs
         run: |
+          cat scripts/targets.conf >> build/config/targets.conf
+          cat scripts/targets-cli-beta.conf >> build/config/targets-cli-beta.conf
           var="${{ inputs.variant }}"
           if [[ "$var" != *beta ]]; then
             FILENAME="targets.conf | grep ${var%:*} | grep \"yes\|adv\""
@@ -83,7 +91,7 @@ jobs:
           # if we want to split more
           # MATRIX=$(split --number=l/${{ inputs.part }}/${{ inputs.of }} <<<
 
-          MATRIX="cat build/config/"${FILENAME}" | grep -v \"^$\" | grep -v \"^#\" |  ${{ inputs.include }} ${{ inputs.exclude }}  cut -f1 -d ' ' | pr -t -n4 | tr -s '[:blank:]' ':' | cut -d\":\" -f2,3"
+          MATRIX="cat build/config/"${FILENAME}" | grep -v \"^$\" | grep -v \"^#\" | sort | uniq |  ${{ inputs.include }} ${{ inputs.exclude }}  cut -f1 -d ' ' | pr -t -n4 | tr -s '[:blank:]' ':' | cut -d\":\" -f2,3"
           #[ -s changes ] || unset MATRIX
           echo ::set-output name=matrix::$(for x in $(eval $MATRIX); do echo $x; done|jq -cnR '[inputs | select(length>0)]' | jq)
 
