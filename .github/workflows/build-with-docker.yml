@@ -376,22 +376,49 @@ jobs:
           fi
 
           datenow="$(date -Iseconds)"
+
+
+          # NEW
+          curl -H "Authorization: Bearer ${{ secrets.FWUPLOAD }}" \
+              -F 'vendor="jethome"' \
+              -F 'platform="'${BOARD:6}'"' \
+              -F 'firmware_type="armbian.'${BETA}.${RELEASE}.${BRANCH}'"' \
+              -F 'version="'${VERSION}'"' \
+              -F 'release_date="'${datenow}'"' \
+              -F "update_latest_ref=true" \
+              "https://fw.jethome.ru/api/create_firmware"
+
           IMAGENAME="Armbian_${VERSION}_${BOARD^}_${RELEASE}_${BRANCH}_${LINUXVER}.img.xz"
           hash_pgp="${IMAGENAME}.asc"
           echo First upload firmware_type=armbian.${RELEASE}.${BETA}
           ls output/images/${BOARD}/${DEPLOYFOLDER}/
           curl -H "Authorization: Bearer ${{ secrets.FWUPLOAD }}" \
-            -F "hash_pgp=@output/images/${BOARD}/${DEPLOYFOLDER}/${hash_pgp}" \
-            -F 'vendor="jethome"' \
-            -F 'platform="'${BOARD:6}'"' \
-            -F 'firmware_type="armbian.'${RELEASE}.${BETA}'"' \
-            -F 'environment="sdcard"' \
-            -F 'version="'${VERSION}'"' \
-            -F 'release_date="'${datenow}'"' \
-            -F "firmware_file=@output/images/${BOARD}/${DEPLOYFOLDER}/${IMAGENAME}" \
-            -F "update_latest_ref=true" \
-            -F "force_overwrite=true" \
-            "https://fw.jethome.ru/api/upload_firmware/"
+              -F 'vendor="jethome"' \
+              -F 'platform="'${BOARD:6}'"' \
+              -F 'firmware_type="armbian.'${BETA}.${RELEASE}.${BRANCH}'"' \
+              -F 'image_type="sdcard"' \
+              -F "hash_pgp=@output/images/${BOARD}/${DEPLOYFOLDER}/${hash_pgp}" \
+              -F "firmware_file=@output/images/${BOARD}/${DEPLOYFOLDER}/${IMAGENAME}" \
+              -F "force_overwrite=true" \
+              "https://fw.jethome.ru/api/upload_firmware/"
+
+
+          #IMAGENAME="Armbian_${VERSION}_${BOARD^}_${RELEASE}_${BRANCH}_${LINUXVER}.img.xz"
+          #hash_pgp="${IMAGENAME}.asc"
+          #echo First upload firmware_type=armbian.${RELEASE}.${BETA}
+          #ls output/images/${BOARD}/${DEPLOYFOLDER}/
+          #curl -H "Authorization: Bearer ${{ secrets.FWUPLOAD }}" \
+          #  -F "hash_pgp=@output/images/${BOARD}/${DEPLOYFOLDER}/${hash_pgp}" \
+          #  -F 'vendor="jethome"' \
+          #  -F 'platform="'${BOARD:6}'"' \
+          #  -F 'firmware_type="armbian.'${RELEASE}.${BETA}'"' \
+          #  -F 'environment="sdcard"' \
+          #  -F 'version="'${VERSION}'"' \
+          #  -F 'release_date="'${datenow}'"' \
+          #  -F "firmware_file=@output/images/${BOARD}/${DEPLOYFOLDER}/${IMAGENAME}" \
+          #  -F "update_latest_ref=true" \
+          #  -F "force_overwrite=true" \
+          #  "https://fw.jethome.ru/api/upload_firmware/"
 
           cd ../tools
 
@@ -402,17 +429,27 @@ jobs:
           ls output/
 
           curl -H "Authorization: Bearer ${{ secrets.FWUPLOAD }}" \
-            -F "hash_pgp=@output/${hash_pgp}" \
-            -F 'vendor="jethome"' \
-            -F 'platform="'"${BOARD:6}"'"' \
-            -F 'firmware_type="armbian.'${RELEASE}.${BETA}'"' \
-            -F 'environment="burn"' \
-            -F 'version="'${VERSION}'"' \
-            -F 'release_date="'${datenow}'"' \
-            -F "firmware_file=@output/${IMAGENAMEBURN}" \
-            -F "update_latest_ref=true" \
-            -F "force_overwrite=true" \
-            "https://fw.jethome.ru/api/upload_firmware/"
+              -F 'vendor="jethome"' \
+              -F 'platform="'${BOARD:6}'"' \
+              -F 'firmware_type="armbian.'${BETA}.${RELEASE}.${BRANCH}'"' \
+              -F 'image_type="burn"' \
+              -F "hash_pgp=@output/${hash_pgp}" \
+              -F "firmware_file=@output/${IMAGENAMEBURN}" \
+              -F "force_overwrite=true" \
+              "https://fw.jethome.ru/api/upload_firmware/"
+
+          #curl -H "Authorization: Bearer ${{ secrets.FWUPLOAD }}" \
+          #  -F "hash_pgp=@output/${hash_pgp}" \
+          #  -F 'vendor="jethome"' \
+          #  -F 'platform="'"${BOARD:6}"'"' \
+          #  -F 'firmware_type="armbian.'${RELEASE}.${BETA}'"' \
+          #  -F 'environment="burn"' \
+          #  -F 'version="'${VERSION}'"' \
+          #  -F 'release_date="'${datenow}'"' \
+          #  -F "firmware_file=@output/${IMAGENAMEBURN}" \
+          #  -F "update_latest_ref=true" \
+          #  -F "force_overwrite=true" \
+          #  "https://fw.jethome.ru/api/upload_firmware/"
 
           echo $LINUXVER
           echo Fire to fw.jethome.ru!
