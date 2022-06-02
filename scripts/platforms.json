@@ -1,0 +1,14 @@
+{
+    "Jethubj80": {
+        "firmware_types": [],
+        "is_active": true,
+        "slug": "j80",
+        "name": "J80"
+    },
+    "Jethubj100": {
+        "firmware_types": [],
+        "is_active": true,
+        "slug": "j100",
+        "name": "J100"
+    }
+}

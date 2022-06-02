@@ -1,0 +1,23 @@
+{
+    "jammy": {
+        "final": false, 
+        "subtypes": [], 
+        "is_active": true, 
+        "slug": "jammy", 
+        "name": "Ubuntu 22.04 Jammy"
+    }, 
+    "bullseye": {
+        "final": false, 
+        "subtypes": [], 
+        "is_active": true, 
+        "slug": "bullseye", 
+        "name": "Debian 11 Bullseye"
+    }, 
+    "focal": {
+        "final": false, 
+        "subtypes": [], 
+        "is_active": true, 
+        "slug": "focal", 
+        "name": "Ubuntu 20.04 Focal"
+    }
+}
