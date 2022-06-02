@@ -51,7 +51,7 @@ jobs:
       matrix: ${{steps.list_dirs.outputs.matrix}}
     steps:
       - uses: hmarr/debug-action@v2
-      
+
       - name: Checkout repository
         uses: actions/checkout@v2
         with:
@@ -200,13 +200,17 @@ jobs:
             sudo cp ../armbian-scripts/VERSION .
 
             MAKE_FOLDERS="archive"
+            CHANNEL="release"
             if [[ "$var" == *rc ]]; then
               MAKE_FOLDERS="rc"
+              CHANNEL="rc"
             fi
             BETA="no"
           else
             FILENAME="targets-${var%:*}-beta.conf"
             MAKE_FOLDERS="${{ inputs.sourcerepo }}"
+            CHANNEL="${{ inputs.sourcerepo }}"
+
             BETA="yes"
           fi
 
@@ -216,6 +220,7 @@ jobs:
 
           echo "DEPLOYFOLDER=$MAKE_FOLDERS" >> $GITHUB_ENV
           echo "MAKE_FOLDERS=$MAKE_FOLDERS" >> $GITHUB_ENV
+          echo "CHANNEL=$CHANNEL" >> $GITHUB_ENV
           echo "CHUNK=$CHUNK" >> $GITHUB_ENV
           echo "LINE=$LINE" >> $GITHUB_ENV
           echo "BOARD=$BOARD" >> $GITHUB_ENV
@@ -377,7 +382,14 @@ jobs:
 
           datenow="$(date -Iseconds)"
 
+          TMPJSON=$(mktemp)
+          ../armbian-scripts/scripts/fwjson.py Armbian ${BOARD^} ${CHANNEL} ${RELEASE} ${BRANCH} > ${TMPJSON}
+          curl -H "Authorization: Bearer ${{ secrets.FWUPLOAD }}" \
+              -F 'import_file=@${TMPJSON}' \
+              -F 'commit="true"' \
+              "https://fw.jethome.ru/api/import_hierarchy/"
 
+          rm -rf ${TMPJSON}
           # NEW
           curl -H "Authorization: Bearer ${{ secrets.FWUPLOAD }}" \
               -F 'vendor="jethome"' \
