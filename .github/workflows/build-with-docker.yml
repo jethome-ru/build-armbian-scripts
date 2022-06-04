@@ -383,7 +383,9 @@ jobs:
           datenow="$(date -Iseconds)"
 
           TMPJSON=$(mktemp)
-          ../armbian-scripts/scripts/fwjson.py Armbian ${BOARD^} ${CHANNEL} ${RELEASE} ${BRANCH} > ${TMPJSON}
+          ../scripts/scripts/fwjson.py Armbian ${BOARD^} ${CHANNEL} ${RELEASE} ${BRANCH} > ${TMPJSON}
+          echo Add category to fw
+          cat ${TMPJSON}
           curl -H "Authorization: Bearer ${{ secrets.FWUPLOAD }}" \
               -F 'import_file=@${TMPJSON}' \
               -F 'commit="true"' \
@@ -391,6 +393,7 @@ jobs:
 
           rm -rf ${TMPJSON}
           # NEW
+          echo Create firmware slot
           curl -H "Authorization: Bearer ${{ secrets.FWUPLOAD }}" \
               -F 'vendor="jethome"' \
               -F 'platform="'${BOARD:6}'"' \
