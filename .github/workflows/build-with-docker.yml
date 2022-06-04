@@ -385,32 +385,42 @@ jobs:
           TMPJSON=$(mktemp)
           ../scripts/scripts/fwjson.py Armbian ${BOARD^} ${CHANNEL} ${RELEASE} ${BRANCH} > ${TMPJSON}
           echo Add category to fw
-          cat ${TMPJSON}
+          #cat ${TMPJSON}
           curl -H "Authorization: Bearer ${{ secrets.FWUPLOAD }}" \
-              -F 'import_file=@${TMPJSON}' \
+              -F "import_file=@${TMPJSON}" \
               -F 'commit="true"' \
               "https://fw.jethome.ru/api/import_hierarchy/"
 
           rm -rf ${TMPJSON}
           # NEW
           echo Create firmware slot
-          curl -H "Authorization: Bearer ${{ secrets.FWUPLOAD }}" \
+          echo curl -H "Authorization: Bearer secrets" \
               -F 'vendor="jethome"' \
               -F 'platform="'${BOARD:6}'"' \
-              -F 'firmware_type="armbian.'${BETA}.${RELEASE}.${BRANCH}'"' \
+              -F 'firmware_type="armbian.'${CHANNEL}.${RELEASE}.${BRANCH}'"' \
               -F 'version="'${VERSION}'"' \
               -F 'release_date="'${datenow}'"' \
               -F "update_latest_ref=true" \
-              "https://fw.jethome.ru/api/create_firmware"
+              "https://fw.jethome.ru/api/create_firmware/"
+
+          curl -H "Authorization: Bearer ${{ secrets.FWUPLOAD }}" \
+              -F 'vendor="jethome"' \
+              -F 'platform="'${BOARD:6}'"' \
+              -F 'firmware_type="armbian.'${CHANNEL}.${RELEASE}.${BRANCH}'"' \
+              -F 'version="'${VERSION}'"' \
+              -F 'release_date="'${datenow}'"' \
+              -F "update_latest_ref=true" \
+              "https://fw.jethome.ru/api/create_firmware/"
 
           IMAGENAME="Armbian_${VERSION}_${BOARD^}_${RELEASE}_${BRANCH}_${LINUXVER}.img.xz"
           hash_pgp="${IMAGENAME}.asc"
-          echo First upload firmware_type=armbian.${RELEASE}.${BETA}
+          echo First upload firmware_type=armbian.${RELEASE}.${CHANNEL}
           ls output/images/${BOARD}/${DEPLOYFOLDER}/
           curl -H "Authorization: Bearer ${{ secrets.FWUPLOAD }}" \
               -F 'vendor="jethome"' \
               -F 'platform="'${BOARD:6}'"' \
-              -F 'firmware_type="armbian.'${BETA}.${RELEASE}.${BRANCH}'"' \
+              -F 'firmware_type="armbian.'${CHANNEL}.${RELEASE}.${BRANCH}'"' \
+              -F 'version="'${VERSION}'"' \
               -F 'image_type="sdcard"' \
               -F "hash_pgp=@output/images/${BOARD}/${DEPLOYFOLDER}/${hash_pgp}" \
               -F "firmware_file=@output/images/${BOARD}/${DEPLOYFOLDER}/${IMAGENAME}" \
@@ -420,13 +430,13 @@ jobs:
 
           #IMAGENAME="Armbian_${VERSION}_${BOARD^}_${RELEASE}_${BRANCH}_${LINUXVER}.img.xz"
           #hash_pgp="${IMAGENAME}.asc"
-          #echo First upload firmware_type=armbian.${RELEASE}.${BETA}
+          #echo First upload firmware_type=armbian.${RELEASE}.${CHANNEL}
           #ls output/images/${BOARD}/${DEPLOYFOLDER}/
           #curl -H "Authorization: Bearer ${{ secrets.FWUPLOAD }}" \
           #  -F "hash_pgp=@output/images/${BOARD}/${DEPLOYFOLDER}/${hash_pgp}" \
           #  -F 'vendor="jethome"' \
           #  -F 'platform="'${BOARD:6}'"' \
-          #  -F 'firmware_type="armbian.'${RELEASE}.${BETA}'"' \
+          #  -F 'firmware_type="armbian.'${RELEASE}.${CHANNEL}'"' \
           #  -F 'environment="sdcard"' \
           #  -F 'version="'${VERSION}'"' \
           #  -F 'release_date="'${datenow}'"' \
@@ -440,13 +450,14 @@ jobs:
           IMAGENAMEBURN="Armbian_${VERSION}_${BOARD^}_${RELEASE}_${BRANCH}_${LINUXVER}.burn.img.xz"
           hash_pgp="${IMAGENAMEBURN}.asc"
 
-          echo Second upload firmware_type=armbian.${RELEASE}.${BETA}
+          echo Second upload firmware_type=armbian.${RELEASE}.${CHANNEL}
           ls output/
 
           curl -H "Authorization: Bearer ${{ secrets.FWUPLOAD }}" \
               -F 'vendor="jethome"' \
               -F 'platform="'${BOARD:6}'"' \
-              -F 'firmware_type="armbian.'${BETA}.${RELEASE}.${BRANCH}'"' \
+              -F 'firmware_type="armbian.'${CHANNEL}.${RELEASE}.${BRANCH}'"' \
+              -F 'version="'${VERSION}'"' \
               -F 'image_type="burn"' \
               -F "hash_pgp=@output/${hash_pgp}" \
               -F "firmware_file=@output/${IMAGENAMEBURN}" \
@@ -457,7 +468,7 @@ jobs:
           #  -F "hash_pgp=@output/${hash_pgp}" \
           #  -F 'vendor="jethome"' \
           #  -F 'platform="'"${BOARD:6}"'"' \
-          #  -F 'firmware_type="armbian.'${RELEASE}.${BETA}'"' \
+          #  -F 'firmware_type="armbian.'${RELEASE}.${CHANNEL}'"' \
           #  -F 'environment="burn"' \
           #  -F 'version="'${VERSION}'"' \
           #  -F 'release_date="'${datenow}'"' \
