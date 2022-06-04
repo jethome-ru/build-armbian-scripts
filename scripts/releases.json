@@ -6,6 +6,13 @@
         "slug": "jammy", 
         "name": "Ubuntu 22.04 Jammy"
     }, 
+    "sid": {
+        "final": false, 
+        "subtypes": [], 
+        "is_active": true, 
+        "slug": "sid", 
+        "name": "Debian Sid"
+    }, 
     "bullseye": {
         "final": false, 
         "subtypes": [], 
