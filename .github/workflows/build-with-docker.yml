@@ -360,6 +360,7 @@ jobs:
         run: |
           cd build
           if [[ -z "${{ secrets.FWUPLOAD }}" ]]; then
+            echo no fw upload secrets
             exit 0
           fi
 
@@ -367,7 +368,7 @@ jobs:
           var="${{ inputs.variant }}"
           if [[ "$var" != *beta ]]; then
             if [[ ${BRANCH} == "edge" ]]; then
-              exit 0
+              echo seems edge kernel on stable image #exit 0
             fi
             BETA="stable"
             if [[ "$var" == *rc ]]; then
@@ -375,7 +376,7 @@ jobs:
             fi
           else
             if [[ ${BRANCH} == "current" ]]; then
-              exit 0
+              echo seems current kernel on beta image #exit 0
             fi
             BETA="beta"
           fi
@@ -385,7 +386,8 @@ jobs:
           TMPJSON=$(mktemp)
           ../scripts/scripts/fwjson.py Armbian ${BOARD^} ${CHANNEL} ${RELEASE} ${BRANCH} > ${TMPJSON}
           echo Add category to fw
-          #cat ${TMPJSON}
+          cat ${TMPJSON}
+          echo -------------------------------!
           curl -H "Authorization: Bearer ${{ secrets.FWUPLOAD }}" \
               -F "import_file=@${TMPJSON}" \
               -F 'commit="true"' \
