@@ -55,7 +55,7 @@ if brand:
     else:
         fwtypechannel = channels ['nightly'] # release,rc,nightly
         fwtypechannel['name'] = 'Nightly branch: '+ channel
-        fwtypechannel['slug'] = channel
+        fwtypechannel['slug'] = channel.lower()
 
     fwtyperelease = releases [release] # focal,jammy,bulseye
     fwtypebranches = branches[branch] # current, edge
