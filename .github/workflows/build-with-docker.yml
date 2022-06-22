@@ -346,7 +346,8 @@ jobs:
             [[ -d output/usr/lib/linux*/uboot.nosd.bin ]] && cp output/usr/lib/linux*/u-boot.nosd.bin src/j80/u-boot.armbian.bin
             ./convert.sh ../build/output/images/${IMAGENAME} h1 armbian compress output/usr/lib/linux*/u-boot.nosd.bin 
           fi
-          echo ${{ secrets.GPG_PASSPHRASE }} | gpg --passphrase-fd 0 --armor --detach-sign --pinentry-mode loopback --batch --yes output/*.img.xz
+          echo ${{ secrets.GPG_PASSPHRASE }} | gpg --passphrase-fd 0 --armor --detach-sign --pinentry-mode loopback --batch --yes output/*.img.xz || exit 0 
+          echo ${{ secrets.GPG_PASSPHRASE }} | gpg --passphrase-fd 0 --armor --detach-sign --pinentry-mode loopback --batch --yes output/*.img.zip || exit 0 
           sudo rm -rf output/usr
 
       - name: Deploy to server
@@ -450,6 +451,7 @@ jobs:
           cd ../tools
 
           IMAGENAMEBURN="Armbian_${VERSION}_${BOARD^}_${RELEASE}_${BRANCH}_${LINUXVER}.burn.img.xz"
+          [ -e ${IMAGENAMEBURN} ] || IMAGENAMEBURN="Armbian_${VERSION}_${BOARD^}_${RELEASE}_${BRANCH}_${LINUXVER}.burn.img.zip"
           hash_pgp="${IMAGENAMEBURN}.asc"
 
           echo Second upload firmware_type=armbian.${RELEASE}.${CHANNEL}
