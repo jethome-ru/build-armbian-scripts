@@ -346,8 +346,8 @@ jobs:
             [[ -d output/usr/lib/linux*/uboot.nosd.bin ]] && cp output/usr/lib/linux*/u-boot.nosd.bin src/j80/u-boot.armbian.bin
             ./convert.sh ../build/output/images/${IMAGENAME} h1 armbian compress output/usr/lib/linux*/u-boot.nosd.bin 
           fi
-          echo ${{ secrets.GPG_PASSPHRASE }} | gpg --passphrase-fd 0 --armor --detach-sign --pinentry-mode loopback --batch --yes output/*.img.xz || exit 0 
-          echo ${{ secrets.GPG_PASSPHRASE }} | gpg --passphrase-fd 0 --armor --detach-sign --pinentry-mode loopback --batch --yes output/*.img.zip || exit 0 
+          echo ${{ secrets.GPG_PASSPHRASE }} | gpg --passphrase-fd 0 --armor --detach-sign --pinentry-mode loopback --batch --yes output/*.img.xz || true
+          echo ${{ secrets.GPG_PASSPHRASE }} | gpg --passphrase-fd 0 --armor --detach-sign --pinentry-mode loopback --batch --yes output/*.img.zip || true
           sudo rm -rf output/usr
 
       - name: Deploy to server
@@ -355,6 +355,7 @@ jobs:
           cd build
           rsync -avr --rsync-path="mkdir -p /var/www/update.jethome.ru/armbian/${DEPLOYFOLDER}/${BOARD}/burn && rsync" output/images/${BOARD}/${DEPLOYFOLDER}/ repo@update.jethome.ru:/var/www/update.jethome.ru/armbian/${DEPLOYFOLDER}/${BOARD}/
           cd ../tools
+          rm -rf output/usr || true
           rsync -avr output/ repo@update.jethome.ru:/var/www/update.jethome.ru/armbian/${DEPLOYFOLDER}/${BOARD}/burn/
 
       - name: Deploy to fw.jethome.ru
@@ -417,6 +418,7 @@ jobs:
 
           IMAGENAME="Armbian_${VERSION}_${BOARD^}_${RELEASE}_${BRANCH}_${LINUXVER}.img.xz"
           hash_pgp="${IMAGENAME}.asc"
+          echo
           echo First upload firmware_type=armbian.${RELEASE}.${CHANNEL}
           ls output/images/${BOARD}/${DEPLOYFOLDER}/
           curl -H "Authorization: Bearer ${{ secrets.FWUPLOAD }}" \
@@ -451,9 +453,11 @@ jobs:
           cd ../tools
 
           IMAGENAMEBURN="Armbian_${VERSION}_${BOARD^}_${RELEASE}_${BRANCH}_${LINUXVER}.burn.img.xz"
-          [ -e ${IMAGENAMEBURN} ] || IMAGENAMEBURN="Armbian_${VERSION}_${BOARD^}_${RELEASE}_${BRANCH}_${LINUXVER}.burn.img.zip"
+          [ -e output/${IMAGENAMEBURN} ] || IMAGENAMEBURN="Armbian_${VERSION}_${BOARD^}_${RELEASE}_${BRANCH}_${LINUXVER}.burn.img.zip"
+          [ -e output/${IMAGENAMEBURN} ] || echo "!!!!! does not exist ${IMAGENAMEBURN}"
           hash_pgp="${IMAGENAMEBURN}.asc"
 
+          echo ${IMAGENAMEBURN}
           echo Second upload firmware_type=armbian.${RELEASE}.${CHANNEL}
           ls output/
 
