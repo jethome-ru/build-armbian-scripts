@@ -270,7 +270,7 @@ jobs:
           SKIP_EXTERNAL_TOOLCHAINS="no"
           #REPOSITORY_INSTALL="u-boot,kernel,armbian-bsp-cli,armbian-bsp-desktop,armbian-desktop,armbian-config,armbian-firmware,armbian-zsh"
 
-          sudo sed -i "s/ -it / -i /" userpatches/config-docker.conf
+          sudo sed -i "s/ -it / -i /" userpatches/config-docker.conf || echo No update userpatches
           ./compile.sh docker \
           BETA="${BETA}" \
           SKIP_BOOTSPLASH="yes" \
