@@ -296,7 +296,7 @@ jobs:
           ARMBIAN_CACHE_ROOTFS_PATH="${ARMBIAN_CACHE_ROOTFS_PATH}" \
           REPOSITORY_INSTALL="$REPOSITORY_INSTALL" \
           DESKTOP_APPGROUPS_SELECTED="$DESKTOP_APPGROUPS_SELECTED" \
-          COMPRESS_OUTPUTIMAGE=sha,img,xz \
+          COMPRESS_OUTPUTIMAGE=sha,xz \
           EXPERT="yes"
 
           sudo chown -R $USER.$USER output/images/$BOARD 2> /dev/null || true
