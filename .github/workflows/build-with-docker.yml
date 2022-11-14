@@ -91,7 +91,8 @@ jobs:
           # if we want to split more
           # MATRIX=$(split --number=l/${{ inputs.part }}/${{ inputs.of }} <<<
 
-          MATRIX="cat build/config/"${FILENAME}" | grep -v \"^$\" | grep -v \"^#\" | sort | uniq |  ${{ inputs.include }} ${{ inputs.exclude }}  cut -f1 -d ' ' | pr -t -n4 | tr -s '[:blank:]' ':' | cut -d\":\" -f2,3"
+          #orig MATRIX="cat build/config/"${FILENAME}" | grep -v \"^$\" | grep -v \"^#\" | sort | uniq |  ${{ inputs.include }} ${{ inputs.exclude }}  cut -f1 -d ' ' | pr -t -n4 | tr -s '[:blank:]' ':' | cut -d\":\" -f2,3"
+          MATRIX="cat build/config/"${FILENAME}" | grep -v \"^$\" | grep -v \"^#\" | sort | uniq |  ${{ inputs.include }} ${{ inputs.exclude }}  cut -f1 -d ' ' | pr -t | tr -s '[:blank:]' ':' | cut -d\":\" -f2,3"
           MATRIXEVAL="$(for x in $(eval $MATRIX); do echo $x; done|jq -cnR '[inputs | select(length>0)]' | jq)"
           echo ${MATRIXEVAL}
           #[ -s changes ] || unset MATRIX
