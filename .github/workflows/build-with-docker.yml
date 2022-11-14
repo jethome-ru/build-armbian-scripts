@@ -53,7 +53,7 @@ jobs:
       - uses: hmarr/debug-action@v2
 
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
           repository: jethome-ru/build-armbian
@@ -61,7 +61,7 @@ jobs:
           ref: ${{ inputs.sourcerepo }}
           clean: false
       - name: Checkout jethome-scripts repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           repository: jethome-ru/build-armbian-scripts
           path: scripts
@@ -111,28 +111,28 @@ jobs:
     runs-on: ${{ inputs.runner }}
     steps:
       - name: Checkout jethome-scripts repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           repository: jethome-ru/build-armbian-scripts
           path: scripts
           ref: master
 
       - name: Checkout armbian-scripts repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           repository: armbian/scripts
           path: armbian-scripts
           ref: master
 
       - name: Checkout armbian-tools repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           repository: jethome-ru/jethome-tools
           path: tools
           ref: convert
 
       - name: Checkout armbian repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           repository: jethome-ru/build-armbian
           path: build
