@@ -26,5 +26,19 @@
         "is_active": true, 
         "slug": "focal", 
         "name": "Ubuntu 20.04 Focal"
+    },
+    "kinetic": {
+        "final": false, 
+        "subtypes": [], 
+        "is_active": true, 
+        "slug": "kinetic", 
+        "name": "Ubuntu 22.10 Kinetic Kudu"
+    },
+    "lunar": {
+        "final": false, 
+        "subtypes": [], 
+        "is_active": true, 
+        "slug": "lunar", 
+        "name": "Ubuntu 23.04 Lunar Lobster"
     }
 }
