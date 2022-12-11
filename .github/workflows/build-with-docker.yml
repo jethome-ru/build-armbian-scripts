@@ -203,7 +203,7 @@ jobs:
 
           if [[ "$var" != *beta ]]; then
             FILENAME="targets.conf | grep \"yes\|adv\""
-            sudo cp ../armbian-scripts/VERSION .
+            #sudo cp ../armbian-scripts/VERSION .
 
             MAKE_FOLDERS="archive"
             CHANNEL="release"
@@ -250,12 +250,12 @@ jobs:
 
 
           VERSION=$(cat VERSION)
+          echo "Build for: ${VERSION} BETA:${BETA} RC=${RC} RELEASE=${RELEASE} BRANCH=${BRANCH}"
           echo "VERSION=${VERSION}"  >> $GITHUB_ENV
           echo "BETA=${BETA}"  >> $GITHUB_ENV
           echo "RC=${RC}"  >> $GITHUB_ENV
           echo "BUILD_DESKTOP=${BUILD_DESKTOP}"  >> $GITHUB_ENV
           echo "BUILD_MINIMAL=${BUILD_MINIMAL}"  >> $GITHUB_ENV
-          echo "BETA=${BETA}" >> $GITHUB_ENV
           echo "RELEASE=${RELEASE}" >> $GITHUB_ENV
           echo "BRANCH=${BRANCH}" >> $GITHUB_ENV
           echo "DESKTOP_ENVIRONMENT_CONFIG_NAME=${DESKTOP_ENVIRONMENT_CONFIG_NAME}" >> $GITHUB_ENV
