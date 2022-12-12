@@ -390,7 +390,7 @@ jobs:
         id: upload-burn
         uses: jethome-iot/firmware-scripts@master
         with:
-          fullslug: "JetHome.${BOARD:6}.Armbian.${CHANNEL}.${RELEASE}.${BRANCH}"
+          fullslug: "JetHome.${{ env.BRD }}.Armbian.${{ env.CHANNEL }}.${{ env.RELEASE }}.${{ env.BRANCH }}"
           image_type: "burn"
           firmware_file: "tools/output/Armbian_${{ env.VERSION }}_${{ env.BOARDUP }}_${{ env.RELEASE }}_${{ env.BRANCH }}_${{ env.LINUXVER }}.burn.img.zip"
           hashpgp_file: "tools/output/Armbian_${{ env.VERSION }}_${{ env.BOARDUP }}_${{ env.RELEASE }}_${{ env.BRANCH }}_${{ env.LINUXVER }}.burn.img.zip.asc"
