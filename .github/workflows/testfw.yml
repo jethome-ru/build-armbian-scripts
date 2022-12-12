@@ -54,7 +54,7 @@ jobs:
       - name: Deploy to fw.jethome.ru
         uses: jethome-iot/firmware-scripts@master
         with:
-          fullslug: "jethome.Armbian.j100.nightly.jammy.edge"
+          fullslug: "JetHome.j100.Armbian.nightly.jammy.edge"
           image_type: "sdcard"
           firmware_file: "/etc/hosts"
           force_overwrite: true
