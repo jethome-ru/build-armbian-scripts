@@ -344,6 +344,8 @@ jobs:
           echo "SUPPORTED=${SUPPORTED}"  >> $GITHUB_ENV
           echo "LINUXVER=${LINUXVER}"  >> $GITHUB_ENV
           echo "UBOOTDEB=${UBOOTDEB}"  >> $GITHUB_ENV
+          echo "BRD=${BOARD:6}"  >> $GITHUB_ENV
+          echo "BOARDUP=${BOARD^}" >> $GITHUB_ENV
 
       - name: Convert image to burn
         run: |
@@ -370,17 +372,18 @@ jobs:
           rm -rf output/usr || true
           rsync -avr output/ repo@update.jethome.ru:/var/www/update.jethome.ru/armbian/${DEPLOYFOLDER}/${BOARD}/burn/
 
+
       - name: Deploy to fw.jethome.ru (sdcard)
         id: upload-sdcard
         uses: jethome-iot/firmware-scripts@master
         with:
-          fullslug: "JetHome.${BOARD:6}.Armbian.${CHANNEL}.${RELEASE}.${BRANCH}"
+          fullslug: "JetHome.${{ env.BRD }}.Armbian.${{ env.CHANNEL }}.${{ env.RELEASE }}.${{ env.BRANCH }}"
           image_type: "sdcard"
-          firmware_file: "build/output/images/${BOARD}/${DEPLOYFOLDER}/Armbian_${VERSION}_${BOARD^}_${RELEASE}_${BRANCH}_${LINUXVER}.img.xz"
-          hashpgp_file: "build/output/images/${BOARD}/${DEPLOYFOLDER}/Armbian_${VERSION}_${BOARD^}_${RELEASE}_${BRANCH}_${LINUXVER}.img.xz.asc"
+          firmware_file: "build/output/images/${{ env.BOARD }}/${{ env.DEPLOYFOLDER }}/Armbian_${{ env.VERSION }}_${{ env.BOARDUP }}_${{ env.RELEASE }}_${{ env.BRANCH }}_${{ env.LINUXVER }}.img.xz"
+          hashpgp_file: "build/output/images/${{ env.BOARD }}/${{ env.DEPLOYFOLDER }}/Armbian_${{ env.VERSION }}_${{ env.BOARDUP }}_${{ env.RELEASE }}_${{ env.BRANCH }}_${{ env.LINUXVER }}.img.xz.asc"
           force_overwrite: "true"
           update_latest: "true"
-          supported_devices: "${SUPPORTED}"
+          supported_devices: "${{ env.SUPPORTED }}"
           FWUPLOAD: ${{ secrets.FWUPLOAD }}
 
       - name: Deploy to fw.jethome.ru (burn)
@@ -389,11 +392,11 @@ jobs:
         with:
           fullslug: "JetHome.${BOARD:6}.Armbian.${CHANNEL}.${RELEASE}.${BRANCH}"
           image_type: "burn"
-          firmware_file: "tools/output/Armbian_${VERSION}_${BOARD^}_${RELEASE}_${BRANCH}_${LINUXVER}.burn.img.zip"
-          hashpgp_file: "tools/output/Armbian_${VERSION}_${BOARD^}_${RELEASE}_${BRANCH}_${LINUXVER}.burn.img.zip.asc"
+          firmware_file: "tools/output/Armbian_${{ env.VERSION }}_${{ env.BOARDUP }}_${{ env.RELEASE }}_${{ env.BRANCH }}_${{ env.LINUXVER }}.burn.img.zip"
+          hashpgp_file: "tools/output/Armbian_${{ env.VERSION }}_${{ env.BOARDUP }}_${{ env.RELEASE }}_${{ env.BRANCH }}_${{ env.LINUXVER }}.burn.img.zip.asc"
           force_overwrite: "true"
           update_latest: "true"
-          supported_devices: "${SUPPORTED}"
+          supported_devices: "${{ env.SUPPORTED }}"
           FWUPLOAD: ${{ secrets.FWUPLOAD }}
       
       - name: Upload results
