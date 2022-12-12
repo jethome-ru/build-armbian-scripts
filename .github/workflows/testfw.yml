@@ -1,0 +1,64 @@
+name: Test FW
+on:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      sourcerepo:
+       required: true
+       type: string
+      variant:
+       required: true
+       type: string
+      runner:
+        required: true
+        type: string
+      part:
+        required: true
+        type: number
+      of:
+        required: true
+        type: number
+      include:
+        required: false
+        type: string
+      exclude:
+        required: false
+        type: string
+      uploading:
+        type: string
+    secrets:
+      GPG_SIGNING_KEY:
+        required: true
+      GPG_PASSPHRASE:
+        required: true
+      TOKEN:
+        required: true
+      SSHKEY:
+        required: true
+      SSHKNOWNHOSTS:
+        required: true
+      FWUPLOAD:
+        required: false
+
+jobs:
+  image:
+    needs: Prepare
+    runs-on: [self-hosted]
+    steps:
+      - name: Checkout jethome-scripts repository
+        uses: actions/checkout@v3
+        with:
+          repository: jethome-ru/build-armbian-scripts
+          path: scripts
+          ref: master
+
+      - name: Deploy to fw.jethome.ru
+        uses: jethome-iot/firmware-scripts@master
+        with:
+          fullslug: "jethome.Armbian.j100.nightly.jammy.edge"
+          image_type: "sdcard"
+          firmware_file: "/etc/hosts"
+          force_overwrite: true
+          update_latest: true
+          supported_devices: "D1,D1P"
+          FWUPLOAD: ${{ secrets.FWUPLOAD }}
