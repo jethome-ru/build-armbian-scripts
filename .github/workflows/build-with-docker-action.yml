@@ -1,0 +1,420 @@
+name: Build with Docker Action
+on:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      sourcerepo:
+       required: true
+       type: string
+      variant:
+       required: true
+       type: string
+      runner:
+        required: true
+        type: string
+      part:
+        required: true
+        type: number
+      of:
+        required: true
+        type: number
+      include:
+        required: false
+        type: string
+      exclude:
+        required: false
+        type: string
+      uploading:
+        type: string
+    secrets:
+      GPG_SIGNING_KEY:
+        required: true
+      GPG_PASSPHRASE:
+        required: true
+      TOKEN:
+        required: true
+      SSHKEY: 
+        required: true
+      SSHKNOWNHOSTS:
+        required: true
+      FWUPLOAD:
+        required: false
+
+jobs:
+
+  Prepare:
+
+    name: targets
+    runs-on: [self-hosted]
+    if: ${{ github.repository_owner == 'jethome-ru' }}
+    outputs:
+      matrix: ${{steps.list_dirs.outputs.matrix}}
+    steps:
+      - uses: hmarr/debug-action@v2
+
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          repository: jethome-ru/build-armbian
+          path: build
+          ref: ${{ inputs.sourcerepo }}
+          clean: false
+      - name: Checkout jethome-scripts repository
+        uses: actions/checkout@v3
+        with:
+          repository: jethome-ru/build-armbian-scripts
+          path: scripts
+          ref: master
+
+      - name: Remove previous artefacts if any
+        run: |
+          sudo rm -rf changes 2>/dev/null || true
+
+      - name: Download changes
+        uses: actions/download-artifact@v3
+        with:
+          name: changes
+
+      - name: Prepare matrix
+        id: list_dirs
+        run: |
+          cat scripts/targets.conf >> build/config/targets.conf
+          cat scripts/targets-cli-beta.conf >> build/config/targets-cli-beta.conf
+          var="${{ inputs.variant }}"
+          if [[ "$var" != *beta ]]; then
+            FILENAME="targets.conf | grep ${var%:*} | grep \"yes\|adv\""
+          else
+            FILENAME="targets-${var%:*}-beta.conf"
+          fi
+
+          # if we want to split more
+          # MATRIX=$(split --number=l/${{ inputs.part }}/${{ inputs.of }} <<<
+
+          MATRIX="cat build/config/"${FILENAME}" | grep -v \"^$\" | grep -v \"^#\" | sort | uniq |  ${{ inputs.include }} ${{ inputs.exclude }}  cut -f1 -d ' ' | pr -t -n4 | tr -s '[:blank:]' ':' | cut -d\":\" -f2,3"
+          #modded MATRIX="cat build/config/"${FILENAME}" | grep -v \"^$\" | grep -v \"^#\" | sort | uniq |  ${{ inputs.include }} ${{ inputs.exclude }}  cut -f1 -d ' ' | pr -t | tr -s '[:blank:]' ':' | cut -d\":\" -f2,3"
+          MATRIXEVAL="$(for x in $(eval $MATRIX); do echo $x; done|jq -cnR '[inputs | select(length>0)]' | jq)"
+          echo ${MATRIXEVAL}
+          #[ -s changes ] || unset MATRIX
+          echo ::set-output name=matrix::$(for x in $(eval $MATRIX); do echo $x; done|jq -cnR '[inputs | select(length>0)]' | jq)
+          echo set-output name=matrix::$(for x in $(eval $MATRIX); do echo $x; done|jq -cnR '[inputs | select(length>0)]' | jq)
+          #echo "matrix=${MATRIXEVAL}" >> $GITHUB_OUTPUT 
+          #$(for x in $(eval $MATRIX); do echo $x; done|jq -cnR '[inputs | select(length>0)]' | jq)" >> $GITHUB_OUTPUT
+
+  image:
+    needs: Prepare
+    if: ${{ needs.Prepare.outputs.matrix != '[]' && needs.Prepare.outputs.matrix != '' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ${{fromJson(needs.Prepare.outputs.matrix)}}
+    runs-on: ${{ inputs.runner }}
+    steps:
+      - name: Checkout jethome-scripts repository
+        uses: actions/checkout@v3
+        with:
+          repository: jethome-ru/build-armbian-scripts
+          path: scripts
+          ref: master
+
+      - name: Checkout armbian-scripts repository
+        uses: actions/checkout@v3
+        with:
+          repository: armbian/scripts
+          path: armbian-scripts
+          ref: master
+
+      - name: Checkout armbian-tools repository
+        uses: actions/checkout@v3
+        with:
+          repository: jethome-ru/jethome-tools
+          path: tools
+          ref: convert
+
+      - name: Checkout armbian repository
+        uses: actions/checkout@v3
+        with:
+          repository: jethome-ru/build-armbian
+          path: build
+          fetch-depth: 0
+          ref: ${{ inputs.sourcerepo }} 
+          clean: false
+
+      - name: Import GPG key
+        uses: crazy-max/ghaction-import-gpg@v3
+        with:
+          gpg-private-key: ${{ secrets.GPG_SIGNING_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+          workdir: scripts
+          git-user-signingkey: true
+          git-commit-gpgsign: true
+
+      - name: Install SSH key for storage
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.SSHKEY }}
+          known_hosts: ${{ secrets.SSHKNOWNHOSTS }}
+          if_key_exists: replace
+
+      - name: Sync
+        run: |
+
+          mkdir -p build/userpatches
+          sudo cp scripts/configs/* build/userpatches/
+
+      - name: Set env variables
+        run: |
+         cd build
+         echo "JETHOME_CI_DEBS_DIR=testing" >> $GITHUB_ENV
+         echo "JETHOME_CI_FIRMW_DIR=testing" >> $GITHUB_ENV
+         echo "SUDO_USER=actions" >>$GITHUB_ENV
+         echo "TERM=xterm" >> $GITHUB_ENV
+
+      - name: Pull Docker image
+        run: |
+          [[ -z $(command -v docker) ]] && sudo apt-get -yy install docker containerd docker.io
+          #sudo docker kill $(sudo docker ps -q) 2>/dev/null || true
+          #sudo docker image rm $(sudo docker images | grep -v $(cat build/VERSION | sed 's/trunk.*/trunk/')"-$(dpkg --print-architecture)" | awk 'NR>1 {print $3}') 2> /dev/null || true 
+          #sudo docker pull ghcr.io/armbian/build:$(cat build/VERSION | cut -d"." -f1-2)"-$(dpkg --print-architecture)"
+
+      - name: Fix permissions and clean
+        run: |
+          # make sure no temporally dirs are mounted from previous runs
+          #sudo docker volume rm $(sudo docker volume ls -q) 2> /dev/null || true
+          sudo pkill compile.sh || true
+          sudo pkill arm-binfmt-P || true
+          sudo pkill aarch64-binfmt-P || true
+          sudo pkill pixz || true
+          sudo rm -rf build/.tmp
+          [[ -d build/.git ]] && sudo chown -R $USER:$USER build/.git || true
+          [[ -d build/output/images ]] && sudo rm -rf build/output/* || true
+          [[ -d tools/output ]] && sudo rm -rf tools/output/* || true
+
+      - name: Prepare vars
+        run: |
+          cat scripts/targets.conf >> build/config/targets.conf
+          cat scripts/targets-cli-beta.conf >> build/config/targets-cli-beta.conf
+
+          cd build
+
+          # beta/rc/stable
+          var="${{ inputs.variant }}"
+          RC="no"
+
+          if [[ "$var" != *beta ]]; then
+            FILENAME="targets.conf | grep \"yes\|adv\""
+            #sudo cp ../armbian-scripts/VERSION .
+
+            MAKE_FOLDERS="archive"
+            CHANNEL="release"
+            if [[ "$var" == *rc ]]; then
+              MAKE_FOLDERS="rc"
+              CHANNEL="rc"
+            fi
+            BETA="no"
+          else
+            FILENAME="targets-${var%:*}-beta.conf"
+            MAKE_FOLDERS="${{ inputs.sourcerepo }}"
+            CHANNEL="${{ inputs.sourcerepo }}"
+
+            BETA="yes"
+          fi
+
+          CHUNK="${{ matrix.node }}"
+          LINE=$(echo $CHUNK | cut -d":" -f1)
+          BOARD=$(echo $CHUNK | cut -d":" -f2)
+
+          echo "DEPLOYFOLDER=$MAKE_FOLDERS" >> $GITHUB_ENV
+          echo "MAKE_FOLDERS=$MAKE_FOLDERS" >> $GITHUB_ENV
+          echo "CHANNEL=$CHANNEL" >> $GITHUB_ENV
+          echo "CHUNK=$CHUNK" >> $GITHUB_ENV
+          echo "LINE=$LINE" >> $GITHUB_ENV
+          echo "BOARD=$BOARD" >> $GITHUB_ENV
+
+          LINIJA="cat config/${FILENAME} | sort | uniq | grep -v \"^$\" | grep -v \"^#\" | ${{ inputs.include }} ${{ inputs.exclude }} sed -n ''$LINE'p'"
+          read -r BOARD BRANCH RELEASE BUILD_TARGET BUILD_STABILITY BUILD_IMAGE DESKTOP_ENVIRONMENT DESKTOP_ENVIRONMENT_CONFIG_NAME DESKTOP_APPGROUPS_SELECTED \
+          <<< $(eval $LINIJA)
+
+          DESKTOP_APPGROUPS_SELECTED="${DESKTOP_APPGROUPS_SELECTED//,/ }"
+          BUILD_DESKTOP="no"
+          BUILD_MINIMAL="no"
+
+          [[ ${BUILD_TARGET} == "desktop" ]] && BUILD_DESKTOP="yes"
+          [[ ${BUILD_TARGET} == "minimal" ]] && BUILD_MINIMAL="yes"
+          [[ ! -f .ignore_changes ]] && sudo touch .ignore_changes
+
+          [[ -e ../scripts/VER ]] && VER="$(cat ../scripts/VER)"
+          [[ -z $VER ]] && VER="0"
+          cp -f VERSION VERSION.old
+          sed -i "s/$/.jethome.$VER/" VERSION
+
+
+          VERSION=$(cat VERSION)
+          echo "Build for: ${VERSION} BETA:${BETA} RC=${RC} RELEASE=${RELEASE} BRANCH=${BRANCH}"
+          echo "VERSION=${VERSION}"  >> $GITHUB_ENV
+          echo "BETA=${BETA}"  >> $GITHUB_ENV
+          echo "RC=${RC}"  >> $GITHUB_ENV
+          echo "BUILD_DESKTOP=${BUILD_DESKTOP}"  >> $GITHUB_ENV
+          echo "BUILD_MINIMAL=${BUILD_MINIMAL}"  >> $GITHUB_ENV
+          echo "RELEASE=${RELEASE}" >> $GITHUB_ENV
+          echo "BRANCH=${BRANCH}" >> $GITHUB_ENV
+          echo "DESKTOP_ENVIRONMENT_CONFIG_NAME=${DESKTOP_ENVIRONMENT_CONFIG_NAME}" >> $GITHUB_ENV
+          echo "DESKTOP_ENVIRONMENT=${DESKTOP_ENVIRONMENT}" >> $GITHUB_ENV
+          echo "DESKTOP_APPGROUPS_SELECTED=${DESKTOP_APPGROUPS_SELECTED}" >> $GITHUB_ENV
+
+      - name: Assemble
+        run: |
+          export TERM=dumb
+          cd build
+          var="${{ inputs.variant }}"
+          RC="no"
+          if [[ "$var" != *beta ]]; then
+            # we use nightly repository, but change back to stable right before closing image
+            echo "#!""/bin/bash" | sudo tee userpatches/customize-image.sh
+            echo "sed -i 's/beta/apt/' /etc/apt/sources.list.d/armbian.list" | sudo tee -a userpatches/customize-image.sh
+          fi
+          SKIP_EXTERNAL_TOOLCHAINS="no"
+          #REPOSITORY_INSTALL="u-boot,kernel,armbian-bsp-cli,armbian-bsp-desktop,armbian-desktop,armbian-config,armbian-firmware,armbian-zsh"
+
+          sudo rm -rf userpatches
+          sudo sed -i "s/ -it / -i /" config/templates/config-docker.conf || echo No update userpatches
+          ./compile.sh docker \
+          BETA="${BETA}" \
+          SKIP_BOOTSPLASH="yes" \
+          RELEASE="${RELEASE}" \
+          KERNEL_ONLY="no" \
+          SKIP_EXTERNAL_TOOLCHAINS="$SKIP_EXTERNAL_TOOLCHAINS" \
+          IGNORE_UPDATES="no" \
+          SYNC_CLOCK="no" \
+          DESKTOP_ENVIRONMENT_CONFIG_NAME="$DESKTOP_ENVIRONMENT_CONFIG_NAME" \
+          BUILD_DESKTOP="$BUILD_DESKTOP" \
+          BUILD_MINIMAL="$BUILD_MINIMAL" \
+          DESKTOP_ENVIRONMENT="${DESKTOP_ENVIRONMENT}" \
+          KERNEL_CONFIGURE="no" \
+          BOARD="$BOARD" \
+          LOG_SUBPATH="debug/$BOARD" \
+          BRANCH="$BRANCH" \
+          MAKE_FOLDERS="$MAKE_FOLDERS" \
+          IMAGE_PRESENT="no" \
+          BUILD_ALL="yes" \
+          USE_MAINLINE_GOOGLE_MIRROR="yes" \
+          ARMBIAN_CACHE_TOOLCHAIN_PATH="${ARMBIAN_CACHE_TOOLCHAIN_PATH}" \
+          ARMBIAN_CACHE_ROOTFS_PATH="${ARMBIAN_CACHE_ROOTFS_PATH}" \
+          REPOSITORY_INSTALL="$REPOSITORY_INSTALL" \
+          DESKTOP_APPGROUPS_SELECTED="$DESKTOP_APPGROUPS_SELECTED" \
+          COMPRESS_OUTPUTIMAGE=sha,xz \
+          EXPERT="yes"
+
+          sudo chown -R $USER.$USER output/images/$BOARD 2> /dev/null || true
+          sudo chmod 644 output/images/$BOARD/*/*.xz  2> /dev/null || true
+          echo ${{ secrets.GPG_PASSPHRASE }} | gpg --passphrase-fd 0 --armor --detach-sign --pinentry-mode loopback --batch --yes output/images/$BOARD/$MAKE_FOLDERS/*.img.xz
+
+      - name: Get kernel version
+        run: |
+          cd build
+          # beta/rc/stable
+
+          var="${{ inputs.variant }}"
+          echo var=$var
+          if [[ "$var" != *beta ]]; then
+            DEBPATH="debs"
+            echo DEBPATH = ! $DEBPATH !
+          else
+            DEBPATH="debs-beta"
+            echo DEBPATH = ! $DEBPATH !
+          fi
+          #echo [[ "$var" != *beta ]]
+          #if [[ "$var" != *beta ]]; then
+          #  LINUXDEB="output/debs/linux-image-${BRANCH}-meson64_${VERSION}_arm64.deb"
+          #  UBOOTDEB="debs/linux-u-boot-${BRANCH}-${BOARD}_${VERSION}_arm64.deb
+          #  echo ! $LINUXDEB !
+          #else
+          #  LINUXDEB="output/debs-beta/linux-image-${BRANCH}-meson64_${VERSION}_arm64.deb"
+          #  UBOOTDEB="debs-beta/linux-u-boot-${BRANCH}-${BOARD}_${VERSION}_arm64.deb
+          #  echo ! $LINUXDEB !
+          #fi
+          LINUXDEB="output/${DEBPATH}/linux-image-${BRANCH}-meson64_${VERSION}_arm64.deb"
+          UBOOTDEB="${DEBPATH}/linux-u-boot-${BRANCH}-${BOARD}_${VERSION}_arm64.deb"
+
+          echo  ${LINUXDEB} ! ${UBOOTDEB}
+          LINUXVER=$(dpkg --info ${LINUXDEB} | awk -F"-" '/Source:/{print $2}')
+          if [[ ${BOARD} == "jethubj100" ]]; then
+            SUPPORTED="D1,D1P"
+          else if [[ ${BOARD} == "jethubj80" ]]; then
+            SUPPORTED="H1"
+          fi
+          fi
+          echo "SUPPORTED=${SUPPORTED}"
+          echo "LINUXVER=${LINUXVER}"
+          echo "UBOOTDEB=${UBOOTDEB}"
+
+          echo "SUPPORTED=${SUPPORTED}"  >> $GITHUB_ENV
+          echo "LINUXVER=${LINUXVER}"  >> $GITHUB_ENV
+          echo "UBOOTDEB=${UBOOTDEB}"  >> $GITHUB_ENV
+
+      - name: Convert image to burn
+        run: |
+          cd tools
+          dpkg -x "../build/output/${UBOOTDEB}" output
+          IMAGENAME="${BOARD}/${DEPLOYFOLDER}/Armbian_${VERSION}_${BOARD^}_${RELEASE}_${BRANCH}_${LINUXVER}.img.xz"
+          if [[ "${BOARD}" == "jethubj100" ]]; then
+            [[ -d output/usr/lib/linux*/uboot.nosd.bin ]] && cp output/usr/lib/linux*/u-boot.nosd.bin src/j100/u-boot.armbian.bin
+            ./convert.sh ../build/output/images/${IMAGENAME} d1 armbian compress output/usr/lib/linux*/u-boot.nosd.bin 
+
+          else
+            [[ -d output/usr/lib/linux*/uboot.nosd.bin ]] && cp output/usr/lib/linux*/u-boot.nosd.bin src/j80/u-boot.armbian.bin
+            ./convert.sh ../build/output/images/${IMAGENAME} h1 armbian compress output/usr/lib/linux*/u-boot.nosd.bin 
+          fi
+          echo ${{ secrets.GPG_PASSPHRASE }} | gpg --passphrase-fd 0 --armor --detach-sign --pinentry-mode loopback --batch --yes output/*.img.xz || true
+          echo ${{ secrets.GPG_PASSPHRASE }} | gpg --passphrase-fd 0 --armor --detach-sign --pinentry-mode loopback --batch --yes output/*.img.zip || true
+          sudo rm -rf output/usr
+
+      - name: Deploy to server
+        run: |
+          cd build
+          rsync -avr --rsync-path="mkdir -p /var/www/update.jethome.ru/armbian/${DEPLOYFOLDER}/${BOARD}/burn && rsync" output/images/${BOARD}/${DEPLOYFOLDER}/ repo@update.jethome.ru:/var/www/update.jethome.ru/armbian/${DEPLOYFOLDER}/${BOARD}/
+          cd ../tools
+          rm -rf output/usr || true
+          rsync -avr output/ repo@update.jethome.ru:/var/www/update.jethome.ru/armbian/${DEPLOYFOLDER}/${BOARD}/burn/
+
+      - name: Deploy to fw.jethome.ru (sdcard)
+        id: upload-sdcard
+        uses: jethome-iot/firmware-scripts@master
+        with:
+          fullslug: "JetHome.${BOARD:6}.Armbian.${CHANNEL}.${RELEASE}.${BRANCH}"
+          image_type: "sdcard"
+          firmware_file: "build/output/images/${BOARD}/${DEPLOYFOLDER}/Armbian_${VERSION}_${BOARD^}_${RELEASE}_${BRANCH}_${LINUXVER}.img.xz"
+          hash_pgp: "build/output/images/${BOARD}/${DEPLOYFOLDER}/Armbian_${VERSION}_${BOARD^}_${RELEASE}_${BRANCH}_${LINUXVER}.img.xz.asc"
+          force_overwrite: "true"
+          update_latest: "true"
+          supported_devices: "${SUPPORTED}"
+          FWUPLOAD: ${{ secrets.FWUPLOAD }}
+
+      - name: Deploy to fw.jethome.ru (burn)
+        id: upload-burn
+        uses: jethome-iot/firmware-scripts@master
+        with:
+          fullslug: "JetHome.${BOARD:6}.Armbian.${CHANNEL}.${RELEASE}.${BRANCH}"
+          image_type: "burn"
+          firmware_file: "tools/output/Armbian_${VERSION}_${BOARD^}_${RELEASE}_${BRANCH}_${LINUXVER}.burn.img.zip"
+          hash_pgp: "tools/output/Armbian_${VERSION}_${BOARD^}_${RELEASE}_${BRANCH}_${LINUXVER}.burn.img.zip.asc"
+          force_overwrite: "true"
+          update_latest: "true"
+          supported_devices: "${SUPPORTED}"
+          FWUPLOAD: ${{ secrets.FWUPLOAD }}
+      
+      - name: Upload results
+        run: |
+          echo "Image hash: ${{steps.upload-sdcard.outputs.firmware_hash}}"
+          echo "Burn Image hash: ${{steps.upload-burn.outputs.firmware_hash}}"
+
+      - name: Upload artefacts
+        if: inputs.uploading == 'true' && env.UPLOAD == 'true'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.TOKEN }}
+          file: build/output/images/Armbian*
+          tag: "${{ env.BOARD }}/${{ env.DEPLOYFOLDER }}"
+          overwrite: true
+          file_glob: true
+          body: "<p align='center'><a href='https://www.armbian.com'><img src='https://raw.githubusercontent.com/armbian/.github/master/profile/tux-two.png' width='400' height='226' alt='Armbian Linux'></a></p>"
