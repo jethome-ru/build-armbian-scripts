@@ -62,3 +62,10 @@ jobs:
           update_latest: true
           supported_devices: "D1,D1P"
           FWUPLOAD: ${{ secrets.FWUPLOAD }}
+  jobsend:
+    name: finish
+    needs: [image]
+    runs-on: [self-hosted]
+    steps:
+      - run: |
+          echo "End"
