@@ -42,7 +42,6 @@ on:
 
 jobs:
   image:
-    needs: Prepare
     runs-on: [self-hosted]
     steps:
       - name: Checkout jethome-scripts repository
@@ -62,6 +61,8 @@ jobs:
           update_latest: true
           supported_devices: "D1,D1P"
           FWUPLOAD: ${{ secrets.FWUPLOAD }}
+      - run: |
+          echo "End"
   jobsend:
     name: finish
     needs: [image]
