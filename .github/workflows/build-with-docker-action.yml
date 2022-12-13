@@ -248,6 +248,7 @@ jobs:
           VERSION=$(cat VERSION)
           echo "Build for: ${VERSION} BETA:${BETA} RC=${RC} RELEASE=${RELEASE} BRANCH=${BRANCH}"
           echo "VERSION=${VERSION}"  >> $GITHUB_ENV
+          echo "DATE=$(date -Iseconds)"  >> $GITHUB_ENV
           echo "BETA=${BETA}"  >> $GITHUB_ENV
           echo "RC=${RC}"  >> $GITHUB_ENV
           echo "BUILD_DESKTOP=${BUILD_DESKTOP}"  >> $GITHUB_ENV
@@ -384,6 +385,8 @@ jobs:
           image_type: "sdcard"
           firmware_file: "build/output/images/${{ env.BOARD }}/${{ env.DEPLOYFOLDER }}/Armbian_${{ env.VERSION }}_${{ env.BOARDUP }}_${{ env.RELEASE }}_${{ env.BRANCH }}_${{ env.LINUXVER }}.img.xz"
           hashpgp_file: "build/output/images/${{ env.BOARD }}/${{ env.DEPLOYFOLDER }}/Armbian_${{ env.VERSION }}_${{ env.BOARDUP }}_${{ env.RELEASE }}_${{ env.BRANCH }}_${{ env.LINUXVER }}.img.xz.asc"
+          version: "${{ env.VERSION }}"
+          date: "${{ env.DATE }}"
           force_overwrite: "false"
           update_latest: "true"
           supported_devices: "${{ env.SUPPORTED }}"
@@ -397,6 +400,8 @@ jobs:
           image_type: "burn"
           firmware_file: "tools/output/Armbian_${{ env.VERSION }}_${{ env.BOARDUP }}_${{ env.RELEASE }}_${{ env.BRANCH }}_${{ env.LINUXVER }}.burn.img.zip"
           hashpgp_file: "tools/output/Armbian_${{ env.VERSION }}_${{ env.BOARDUP }}_${{ env.RELEASE }}_${{ env.BRANCH }}_${{ env.LINUXVER }}.burn.img.zip.asc"
+          version: "${{ env.VERSION }}"
+          date: "${{ env.DATE }}"
           force_overwrite: "true"
           update_latest: "true"
           supported_devices: "${{ env.SUPPORTED }}"
