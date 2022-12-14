@@ -408,7 +408,8 @@ jobs:
           hashpgp_file: "build/output/images/${{ env.BOARD }}/${{ env.DEPLOYFOLDER }}/Armbian_${{ env.VERSION }}_${{ env.BOARDUP }}_${{ env.RELEASE }}_${{ env.BRANCH }}_${{ env.LINUXVER }}.img.xz.asc"
           version: "${{ env.VERSION }}"
           date: "${{ env.DATE }}"
-          force_overwrite: "false"
+          force_overwrite: "true"
+          generatefirmwareslot: "true"
           update_latest: "true"
           supported_devices: "${{ env.SUPPORTED }}"
           FWUPLOAD: ${{ secrets.FWUPLOAD }}
@@ -424,6 +425,7 @@ jobs:
           hashpgp_file: "tools/output/Armbian_${{ env.VERSION }}_${{ env.BOARDUP }}_${{ env.RELEASE }}_${{ env.BRANCH }}_${{ env.LINUXVER }}.burn.img.zip.asc"
           version: "${{ env.VERSION }}"
           date: "${{ env.DATE }}"
+          generatefirmwareslot: "false"
           force_overwrite: "true"
           update_latest: "true"
           supported_devices: "${{ env.SUPPORTED }}"
