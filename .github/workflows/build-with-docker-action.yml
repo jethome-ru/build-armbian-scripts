@@ -49,17 +49,19 @@ jobs:
     if: ${{ github.repository_owner == 'jethome-ru' }}
     outputs:
       matrix: ${{steps.list_dirs.outputs.matrix}}
+      runner: ${{steps.list_dirs.outputs.runner}}
     steps:
       - uses: hmarr/debug-action@v2
 
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 1
           repository: jethome-ru/build-armbian
           path: build
           ref: ${{ inputs.sourcerepo }}
           clean: false
+
       - name: Checkout jethome-scripts repository
         uses: actions/checkout@v3
         with:
@@ -76,43 +78,56 @@ jobs:
         with:
           name: changes
 
+
       - name: Prepare matrix
         id: list_dirs
         run: |
-          cat scripts/targets.conf >> build/config/targets.conf
-          cat scripts/targets-cli-beta.conf >> build/config/targets-cli-beta.conf
+          TMPFILE=$(mktemp)
+
+          cat scripts/targets.conf build/config/targets.conf | sort | uniq >${TMPFILE}
+          cat ${TMPFILE} > build/config/targets.conf
+
+          cat scripts/targets-cli-beta.conf build/config/targets-cli-beta.conf | sort | uniq >${TMPFILE}
+          cat ${TMPFILE} > build/config/targets-cli-beta.conf
+
+          rm -rf ${TMPFILE}
+
           var="${{ inputs.variant }}"
-          if [[ "$var" != *beta ]]; then
-            FILENAME="targets.conf | grep ${var%:*} | grep \"yes\|adv\""
+          if [[ "$var" == *stable || "$var" == *rc ]]; then
+              FILENAME="build/config/targets.conf | grep ${var%:*} | grep \"yes\|adv\""
           else
-            FILENAME="targets-${var%:*}-beta.conf"
+              FILENAME="build/config/targets-${var%:*}-beta.conf"
           fi
-
           # if we want to split more
-          # MATRIX=$(split --number=l/${{ inputs.part }}/${{ inputs.of }} <<<
+          TEMP=$(mktemp -d || exit 1)
+          
+          MATRIX="cat "${FILENAME}" | grep -v \"^$\" | grep -v \"^#\" | awk '{if (\$6 == \"yes\" || \$6 == \"adv\") print \$0;}' |  ${{ inputs.include }} ${{ inputs.exclude }}  cut -f1 -d ' ' | pr -t -n4 | tr -s '[:blank:]' ':' | cut -d\":\" -f2,3"
 
-          MATRIX="cat build/config/"${FILENAME}" | grep -v \"^$\" | grep -v \"^#\" | sort | uniq |  ${{ inputs.include }} ${{ inputs.exclude }}  cut -f1 -d ' ' | pr -t -n4 | tr -s '[:blank:]' ':' | cut -d\":\" -f2,3"
-          echo Before matrix:${MATRIX} full list:
-          eval "cat build/config/"${FILENAME}" | grep -v \"^$\" | grep -v \"^#\" | sort | uniq |  ${{ inputs.include }} ${{ inputs.exclude }}  cat"
-          echo +------------------------ end fulllist
-          #modded MATRIX="cat build/config/"${FILENAME}" | grep -v \"^$\" | grep -v \"^#\" | sort | uniq |  ${{ inputs.include }} ${{ inputs.exclude }}  cut -f1 -d ' ' | pr -t | tr -s '[:blank:]' ':' | cut -d\":\" -f2,3"
-          MATRIXEVAL="$(for x in $(eval $MATRIX); do echo $x; done|jq -cnR '[inputs | select(length>0)]' | jq)"
-          echo "Matrix eval: ${MATRIXEVAL}"
-          #[ -s changes ] || unset MATRIX
-          echo ::set-output name=matrix::$(for x in $(eval $MATRIX); do echo $x; done|jq -cnR '[inputs | select(length>0)]' | jq)
-          echo set-output name=matrix::$(for x in $(eval $MATRIX); do echo $x; done|jq -cnR '[inputs | select(length>0)]' | jq)
-          #echo "matrix=${MATRIXEVAL}" >> $GITHUB_OUTPUT 
-          #$(for x in $(eval $MATRIX); do echo $x; done|jq -cnR '[inputs | select(length>0)]' | jq)" >> $GITHUB_OUTPUT
-
+          [ -s changes ] || unset MATRIX
+          
+          #echo ::set-output name=matrix::$(for x in $(eval $MATRIX); do echo $x; done|jq -cnR '[inputs | select(length>0)]' | jq)
+          #value=$(for x in $(eval $MATRIX); do echo $x; done|jq -cnR '[inputs | select(length>0)]' | jq -c)
+          echo "matrix=$(for x in $(eval $MATRIX); do echo $x; done|jq -cnR '[inputs | select(length>0)]' | jq -c)" >> $GITHUB_OUTPUT
+          
+          if [[ -z "${{ inputs.runner }}" ]]; then
+             #echo ::set-output name=runner::$(echo '["self-hosted"]' | jq) || true             
+             echo "runner=self-hosted" >> $GITHUB_OUTPUT
+          else
+             #echo ::set-output name=runner::$(echo '["${{ inputs.runner }}"]' | jq) || true
+             echo "runner=${{ inputs.runner }}" >> $GITHUB_OUTPUT
+          fi
+          
   image:
     needs: Prepare
     if: ${{ needs.Prepare.outputs.matrix != '[]' && needs.Prepare.outputs.matrix != '' }}
     strategy:
       fail-fast: false
+      max-parallel: ${{fromJson(needs.Prepare.outputs.parallel)}}
       matrix:
         node: ${{fromJson(needs.Prepare.outputs.matrix)}}
-    runs-on: ${{ inputs.runner }}
+    runs-on: ${{needs.Prepare.outputs.runner}}
     steps:
+
       - name: Checkout jethome-scripts repository
         uses: actions/checkout@v3
         with:
@@ -144,7 +159,7 @@ jobs:
           clean: false
 
       - name: Import GPG key
-        uses: crazy-max/ghaction-import-gpg@v3
+        uses: crazy-max/ghaction-import-gpg@v5
         with:
           gpg-private-key: ${{ secrets.GPG_SIGNING_KEY }}
           passphrase: ${{ secrets.GPG_PASSPHRASE }}
@@ -159,7 +174,7 @@ jobs:
           known_hosts: ${{ secrets.SSHKNOWNHOSTS }}
           if_key_exists: replace
 
-      - name: Sync
+      - name: Sync templates
         run: |
 
           mkdir -p build/userpatches
@@ -168,28 +183,37 @@ jobs:
       - name: Set env variables
         run: |
          cd build
-         echo "JETHOME_CI_DEBS_DIR=testing" >> $GITHUB_ENV
-         echo "JETHOME_CI_FIRMW_DIR=testing" >> $GITHUB_ENV
          echo "SUDO_USER=actions" >>$GITHUB_ENV
          echo "TERM=xterm" >> $GITHUB_ENV
+
+      - name: Pull Docker image
+        run: |
+          [[ -z $(command -v docker) ]] && sudo apt-get -yy install docker containerd docker.io
+          sudo docker kill $(sudo docker ps -q | grep armbian) 2>/dev/null || true
+          sudo docker image rm $(sudo docker images | grep -v latest | grep armbian | awk 'NR>1 {print $3}') 2> /dev/null || true 
+          sudo docker pull ghcr.io/armbian/build:latest"-$(dpkg --print-architecture)"
 
       - name: Fix permissions and clean
         run: |
           # make sure no temporally dirs are mounted from previous runs
           #sudo docker volume rm $(sudo docker volume ls -q) 2> /dev/null || true
           sudo pkill compile.sh || true
-          sudo pkill arm-binfmt-P || true
-          sudo pkill aarch64-binfmt-P || true
-          sudo pkill pixz || true
           sudo rm -rf build/.tmp
           [[ -d build/.git ]] && sudo chown -R $USER:$USER build/.git || true
           [[ -d build/output/images ]] && sudo rm -rf build/output/* || true
           [[ -d tools/output ]] && sudo rm -rf tools/output/* || true
 
-      - name: Prepare vars
+      - name: Prepare vars & Assemble
         run: |
-          cat scripts/targets.conf >> build/config/targets.conf
-          cat scripts/targets-cli-beta.conf >> build/config/targets-cli-beta.conf
+          TMPFILE=$(mktemp)
+
+          cat scripts/targets.conf build/config/targets.conf | sort | uniq >${TMPFILE}
+          cat ${TMPFILE} > build/config/targets.conf
+
+          cat scripts/targets-cli-beta.conf build/config/targets-cli-beta.conf | sort | uniq >${TMPFILE}
+          cat ${TMPFILE} > build/config/targets-cli-beta.conf
+
+          rm -rf ${TMPFILE}
 
           cd build
 
@@ -197,12 +221,17 @@ jobs:
           var="${{ inputs.variant }}"
           RC="no"
 
-          if [[ "$var" != *beta ]]; then
+          if [[ "$var" == *stable || "$var" == *rc ]]; then
             FILENAME="targets.conf | grep \"yes\|adv\""
-            #sudo cp ../armbian-scripts/VERSION .
 
             MAKE_FOLDERS="archive"
             CHANNEL="release"
+            echo "#!""/bin/bash" | sudo tee build/userpatches/customize-image.sh
+            echo "sed -i 's/beta/apt/' /etc/apt/sources.list.d/armbian.list" | sudo tee -a build/userpatches/customize-image.sh
+            echo "sed -i 's/https/http/' /etc/apt/sources.list.d/armbian.list" | sudo tee -a build/userpatches/customize-image.sh
+            echo "sed -i 's/IMAGE_TYPE=.*/IMAGE_TYPE=stable/' /etc/armbian-image-release" | sudo tee -a build/userpatches/customize-image.sh
+            echo "sed -i 's/IMAGE_TYPE=.*/IMAGE_TYPE=stable/' /etc/armbian-release" | sudo tee -a build/userpatches/customize-image.sh
+
             if [[ "$var" == *rc ]]; then
               MAKE_FOLDERS="rc"
               CHANNEL="rc"
@@ -216,9 +245,21 @@ jobs:
             BETA="yes"
           fi
 
+          # install headers on all images but minimal
+          [[ "${BUILD_MINIMAL}" != yes ]] && INSTALL_HEADERS="yes"
+
+          SKIP_EXTERNAL_TOOLCHAINS="no"
+          IGNORE_UPDATES="no"
+
           CHUNK="${{ matrix.node }}"
           LINE=$(echo $CHUNK | cut -d":" -f1)
           BOARD=$(echo $CHUNK | cut -d":" -f2)
+
+          [[ -e ../scripts/VER ]] && VER="$(cat ../scripts/VER)"
+          [[ -z $VER ]] && VER="0"
+          cp -f VERSION VERSION.old
+          sed -i "s/$/.jethome.$VER/" VERSION
+          VERSION=$(cat VERSION)
 
           echo "DEPLOYFOLDER=$MAKE_FOLDERS" >> $GITHUB_ENV
           echo "MAKE_FOLDERS=$MAKE_FOLDERS" >> $GITHUB_ENV
@@ -226,8 +267,10 @@ jobs:
           echo "CHUNK=$CHUNK" >> $GITHUB_ENV
           echo "LINE=$LINE" >> $GITHUB_ENV
           echo "BOARD=$BOARD" >> $GITHUB_ENV
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
 
-          LINIJA="cat config/${FILENAME} | sort | uniq | grep -v \"^$\" | grep -v \"^#\" | ${{ inputs.include }} ${{ inputs.exclude }} sed -n ''$LINE'p'"
+
+          LINIJA="cat config/${FILENAME} | grep -v \"^$\" | grep -v \"^#\" | ${{ inputs.include }} ${{ inputs.exclude }} sed -n ''$LINE'p'"
           read -r BOARD BRANCH RELEASE BUILD_TARGET BUILD_STABILITY BUILD_IMAGE DESKTOP_ENVIRONMENT DESKTOP_ENVIRONMENT_CONFIG_NAME DESKTOP_APPGROUPS_SELECTED \
           <<< $(eval $LINIJA)
 
@@ -239,13 +282,9 @@ jobs:
           [[ ${BUILD_TARGET} == "minimal" ]] && BUILD_MINIMAL="yes"
           [[ ! -f .ignore_changes ]] && sudo touch .ignore_changes
 
-          [[ -e ../scripts/VER ]] && VER="$(cat ../scripts/VER)"
-          [[ -z $VER ]] && VER="0"
-          cp -f VERSION VERSION.old
-          sed -i "s/$/.jethome.$VER/" VERSION
 
 
-          VERSION=$(cat VERSION)
+
           echo "Build for: ${VERSION} BETA:${BETA} RC=${RC} RELEASE=${RELEASE} BRANCH=${BRANCH}"
           echo "VERSION=${VERSION}"  >> $GITHUB_ENV
           echo "DATE=$(date -Iseconds)"  >> $GITHUB_ENV
@@ -259,50 +298,39 @@ jobs:
           echo "DESKTOP_ENVIRONMENT=${DESKTOP_ENVIRONMENT}" >> $GITHUB_ENV
           echo "DESKTOP_APPGROUPS_SELECTED=${DESKTOP_APPGROUPS_SELECTED}" >> $GITHUB_ENV
 
-      - name: Assemble
-        run: |
           export TERM=dumb
-          cd build
-          var="${{ inputs.variant }}"
-          RC="no"
-          if [[ "$var" != *beta ]]; then
-            # we use nightly repository, but change back to stable right before closing image
-            echo "#!""/bin/bash" | sudo tee userpatches/customize-image.sh
-            echo "sed -i 's/beta/apt/' /etc/apt/sources.list.d/armbian.list" | sudo tee -a userpatches/customize-image.sh
-          fi
-          SKIP_EXTERNAL_TOOLCHAINS="no"
-          #REPOSITORY_INSTALL="u-boot,kernel,armbian-bsp-cli,armbian-bsp-desktop,armbian-desktop,armbian-config,armbian-firmware,armbian-zsh"
+          sudo sed -i "s/-it --rm/-i --rm/" userpatches/config-docker.conf || echo No update userpatches
+          sudo sed -i "s/ -it / -i /" config/templates/config-docker.conf || echo No update docker config template
 
-          sudo rm -rf userpatches
-          sudo sed -i "s/ -it / -i /" config/templates/config-docker.conf || echo No update userpatches
           ./compile.sh docker \
-          BETA="${BETA}" \
-          SKIP_BOOTSPLASH="yes" \
-          RELEASE="${RELEASE}" \
-          KERNEL_ONLY="no" \
-          SKIP_EXTERNAL_TOOLCHAINS="$SKIP_EXTERNAL_TOOLCHAINS" \
-          IGNORE_UPDATES="no" \
-          SYNC_CLOCK="no" \
-          DESKTOP_ENVIRONMENT_CONFIG_NAME="$DESKTOP_ENVIRONMENT_CONFIG_NAME" \
-          BUILD_DESKTOP="$BUILD_DESKTOP" \
-          BUILD_MINIMAL="$BUILD_MINIMAL" \
-          DESKTOP_ENVIRONMENT="${DESKTOP_ENVIRONMENT}" \
-          KERNEL_CONFIGURE="no" \
-          BOARD="$BOARD" \
-          LOG_SUBPATH="debug/$BOARD" \
-          BRANCH="$BRANCH" \
-          MAKE_FOLDERS="$MAKE_FOLDERS" \
-          IMAGE_PRESENT="no" \
-          BUILD_ALL="yes" \
-          USE_MAINLINE_GOOGLE_MIRROR="yes" \
-          ARMBIAN_CACHE_TOOLCHAIN_PATH="${ARMBIAN_CACHE_TOOLCHAIN_PATH}" \
-          ARMBIAN_CACHE_ROOTFS_PATH="${ARMBIAN_CACHE_ROOTFS_PATH}" \
-          REPOSITORY_INSTALL="$REPOSITORY_INSTALL" \
-          DESKTOP_APPGROUPS_SELECTED="$DESKTOP_APPGROUPS_SELECTED" \
-          COMPRESS_OUTPUTIMAGE=sha,xz \
-          EXPERT="yes"
+            BETA="${BETA}" \
+            SKIP_BOOTSPLASH="yes" \
+            RELEASE="${RELEASE}" \
+            KERNEL_ONLY="no" \
+            INSTALL_HEADERS="${INSTALL_HEADERS}" \
+            SKIP_EXTERNAL_TOOLCHAINS="$SKIP_EXTERNAL_TOOLCHAINS" \
+            IGNORE_UPDATES="no" \
+            SYNC_CLOCK="no" \
+            DESKTOP_ENVIRONMENT_CONFIG_NAME="$DESKTOP_ENVIRONMENT_CONFIG_NAME" \
+            BUILD_DESKTOP="$BUILD_DESKTOP" \
+            BUILD_MINIMAL="$BUILD_MINIMAL" \
+            DESKTOP_ENVIRONMENT="${DESKTOP_ENVIRONMENT}" \
+            KERNEL_CONFIGURE="no" \
+            BOARD="$BOARD" \
+            LOG_SUBPATH="debug/$BOARD" \
+            BRANCH="$BRANCH" \
+            MAKE_FOLDERS="$MAKE_FOLDERS" \
+            IMAGE_PRESENT="no" \
+            BUILD_ALL="yes" \
+            USE_MAINLINE_GOOGLE_MIRROR="yes" \
+            ARMBIAN_CACHE_TOOLCHAIN_PATH="${ARMBIAN_CACHE_TOOLCHAIN_PATH}" \
+            ARMBIAN_CACHE_ROOTFS_PATH="${ARMBIAN_CACHE_ROOTFS_PATH}" \
+            REPOSITORY_INSTALL="$REPOSITORY_INSTALL" \
+            DESKTOP_APPGROUPS_SELECTED="$DESKTOP_APPGROUPS_SELECTED" \
+            COMPRESS_OUTPUTIMAGE="sha,gpg,xz" \
+            EXPERT="yes"
 
-          sudo chown -R $USER.$USER output/images/$BOARD 2> /dev/null || true
+          sudo chown -R $USER:$USER output/images/$BOARD 2> /dev/null || true
           sudo chmod 644 output/images/$BOARD/*/*.xz  2> /dev/null || true
           echo ${{ secrets.GPG_PASSPHRASE }} | gpg --passphrase-fd 0 --armor --detach-sign --pinentry-mode loopback --batch --yes output/images/$BOARD/$MAKE_FOLDERS/*.img.xz
 
@@ -315,21 +343,11 @@ jobs:
           echo var=$var
           if [[ "$var" != *beta ]]; then
             DEBPATH="debs"
-            echo DEBPATH = ! $DEBPATH !
           else
             DEBPATH="debs-beta"
-            echo DEBPATH = ! $DEBPATH !
           fi
-          #echo [[ "$var" != *beta ]]
-          #if [[ "$var" != *beta ]]; then
-          #  LINUXDEB="output/debs/linux-image-${BRANCH}-meson64_${VERSION}_arm64.deb"
-          #  UBOOTDEB="debs/linux-u-boot-${BRANCH}-${BOARD}_${VERSION}_arm64.deb
-          #  echo ! $LINUXDEB !
-          #else
-          #  LINUXDEB="output/debs-beta/linux-image-${BRANCH}-meson64_${VERSION}_arm64.deb"
-          #  UBOOTDEB="debs-beta/linux-u-boot-${BRANCH}-${BOARD}_${VERSION}_arm64.deb
-          #  echo ! $LINUXDEB !
-          #fi
+          echo "DEBPATH = \! $DEBPATH \!"
+
           LINUXDEB="output/${DEBPATH}/linux-image-${BRANCH}-meson64_${VERSION}_arm64.deb"
           UBOOTDEB="${DEBPATH}/linux-u-boot-${BRANCH}-${BOARD}_${VERSION}_arm64.deb"
 
@@ -379,7 +397,7 @@ jobs:
 
       - name: Deploy to fw.jethome.ru (sdcard)
         id: upload-sdcard
-        uses: jethome-iot/firmware-scripts@master
+        uses: jethome-iot/actions/firmware-upload@master
         with:
           fullslug: "JetHome.${{ env.BRD }}.Armbian.${{ env.CHANNEL }}.${{ env.RELEASE }}.${{ env.BRANCH }}"
           image_type: "sdcard"
@@ -394,7 +412,7 @@ jobs:
 
       - name: Deploy to fw.jethome.ru (burn)
         id: upload-burn
-        uses: jethome-iot/firmware-scripts@master
+        uses: jethome-iot/actions/firmware-upload@master
         with:
           fullslug: "JetHome.${{ env.BRD }}.Armbian.${{ env.CHANNEL }}.${{ env.RELEASE }}.${{ env.BRANCH }}"
           image_type: "burn"
