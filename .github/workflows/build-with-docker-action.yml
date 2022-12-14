@@ -202,7 +202,7 @@ jobs:
           sudo pkill compile.sh || true
           sudo rm -rf build/.tmp
           [[ -d build/.git ]] && sudo chown -R $USER:$USER build/.git || true
-          [[ -d build/output/images ]] && sudo rm -rf build/output/* || true
+          [[ -d build/output ]] && sudo rm -rf build/output/* || true
           [[ -d tools/output ]] && sudo rm -rf tools/output/* || true
 
       - name: Prepare vars & Assemble
