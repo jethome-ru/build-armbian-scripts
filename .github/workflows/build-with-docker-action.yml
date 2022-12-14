@@ -401,6 +401,7 @@ jobs:
         id: upload-sdcard
         uses: jethome-iot/actions/firmware-upload@master
         with:
+          url: https://fw.jethome.ru
           fullslug: "JetHome.${{ env.BRD }}.Armbian.${{ env.CHANNEL }}.${{ env.RELEASE }}.${{ env.BRANCH }}"
           image_type: "sdcard"
           firmware_file: "build/output/images/${{ env.BOARD }}/${{ env.DEPLOYFOLDER }}/Armbian_${{ env.VERSION }}_${{ env.BOARDUP }}_${{ env.RELEASE }}_${{ env.BRANCH }}_${{ env.LINUXVER }}.img.xz"
@@ -416,6 +417,7 @@ jobs:
         id: upload-burn
         uses: jethome-iot/actions/firmware-upload@master
         with:
+          url: https://fw.jethome.ru
           fullslug: "JetHome.${{ env.BRD }}.Armbian.${{ env.CHANNEL }}.${{ env.RELEASE }}.${{ env.BRANCH }}"
           image_type: "burn"
           firmware_file: "tools/output/Armbian_${{ env.VERSION }}_${{ env.BOARDUP }}_${{ env.RELEASE }}_${{ env.BRANCH }}_${{ env.LINUXVER }}.burn.img.zip"
