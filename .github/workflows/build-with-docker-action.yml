@@ -242,7 +242,7 @@ jobs:
           else
             FILENAME="targets-${var%:*}-beta.conf"
             MAKE_FOLDERS="${{ inputs.sourcerepo }}"
-            CHANNEL="$( echo ${{ inputs.sourcerepo }} | sed 's/\./-/')"
+            CHANNEL="$( echo ${{ inputs.sourcerepo }} | sed 's/\./-/'| sed 's/\//-/')"
 
             BETA="yes"
           fi
