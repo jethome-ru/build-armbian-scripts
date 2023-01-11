@@ -228,11 +228,11 @@ jobs:
 
             MAKE_FOLDERS="archive"
             CHANNEL="release"
-            echo "#!""/bin/bash" | sudo tee build/userpatches/customize-image.sh
-            echo "sed -i 's/beta/apt/' /etc/apt/sources.list.d/armbian.list" | sudo tee -a build/userpatches/customize-image.sh
-            echo "sed -i 's/https/http/' /etc/apt/sources.list.d/armbian.list" | sudo tee -a build/userpatches/customize-image.sh
-            echo "sed -i 's/IMAGE_TYPE=.*/IMAGE_TYPE=stable/' /etc/armbian-image-release" | sudo tee -a build/userpatches/customize-image.sh
-            echo "sed -i 's/IMAGE_TYPE=.*/IMAGE_TYPE=stable/' /etc/armbian-release" | sudo tee -a build/userpatches/customize-image.sh
+            echo "#!""/bin/bash" | sudo tee userpatches/customize-image.sh
+            echo "sed -i 's/beta/apt/' /etc/apt/sources.list.d/armbian.list" | sudo tee -a userpatches/customize-image.sh
+            echo "sed -i 's/https/http/' /etc/apt/sources.list.d/armbian.list" | sudo tee -a userpatches/customize-image.sh
+            echo "sed -i 's/IMAGE_TYPE=.*/IMAGE_TYPE=stable/' /etc/armbian-image-release" | sudo tee -a userpatches/customize-image.sh
+            echo "sed -i 's/IMAGE_TYPE=.*/IMAGE_TYPE=stable/' /etc/armbian-release" | sudo tee -a userpatches/customize-image.sh
 
             if [[ "$var" == *rc ]]; then
               MAKE_FOLDERS="rc"
@@ -283,9 +283,6 @@ jobs:
           [[ ${BUILD_TARGET} == "desktop" ]] && BUILD_DESKTOP="yes"
           [[ ${BUILD_TARGET} == "minimal" ]] && BUILD_MINIMAL="yes"
           [[ ! -f .ignore_changes ]] && sudo touch .ignore_changes
-
-
-
 
           echo "Build for: ${VERSION} BETA:${BETA} RC=${RC} RELEASE=${RELEASE} BRANCH=${BRANCH}"
           echo "VERSION=${VERSION}"  >> $GITHUB_ENV
