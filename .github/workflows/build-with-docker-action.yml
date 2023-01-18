@@ -300,6 +300,8 @@ jobs:
           export TERM=dumb
           sudo sed -i "s/-it --rm/-i --rm/" userpatches/config-docker.conf || echo No update userpatches
           sudo sed -i "s/ -it / -i /" config/templates/config-docker.conf || echo No update docker config template
+          sudo sed -i 's/EXTERNAL_NEW=.*/EXTERNAL_NEW=""/' config/templayes/config-example.conf || true
+          sudo sed -i 's/EXTERNAL_NEW=.*/EXTERNAL_NEW=""/' userpatches/config-example.conf || true
 
           ./compile.sh docker \
             BETA="${BETA}" \
