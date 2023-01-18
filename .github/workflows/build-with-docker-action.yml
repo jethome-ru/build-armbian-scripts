@@ -84,10 +84,10 @@ jobs:
         run: |
           TMPFILE=$(mktemp)
 
-          cat scripts/targets.conf build/config/targets.conf | sort | uniq >${TMPFILE}
+          cat scripts/targets.conf build/config/targets.conf | sed  "s/minimal/cli/g" | sort | uniq >${TMPFILE}
           cat ${TMPFILE} > build/config/targets.conf
 
-          cat scripts/targets-cli-beta.conf build/config/targets-cli-beta.conf | sort | uniq >${TMPFILE}
+          cat scripts/targets-cli-beta.conf build/config/targets-cli-beta.conf | sed  "s/minimal/cli/g" | sort | uniq >${TMPFILE}
           cat ${TMPFILE} > build/config/targets-cli-beta.conf
 
           rm -rf ${TMPFILE}
@@ -209,10 +209,10 @@ jobs:
         run: |
           TMPFILE=$(mktemp)
 
-          cat scripts/targets.conf build/config/targets.conf | sort | uniq >${TMPFILE}
+          cat scripts/targets.conf build/config/targets.conf | sed  "s/minimal/cli/g" | sort | uniq >${TMPFILE}
           cat ${TMPFILE} > build/config/targets.conf
 
-          cat scripts/targets-cli-beta.conf build/config/targets-cli-beta.conf | sort | uniq >${TMPFILE}
+          cat scripts/targets-cli-beta.conf build/config/targets-cli-beta.conf | sed  "s/minimal/cli/g" | sort | uniq >${TMPFILE}
           cat ${TMPFILE} > build/config/targets-cli-beta.conf
 
           rm -rf ${TMPFILE}
